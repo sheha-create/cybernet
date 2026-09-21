@@ -1,0 +1,358 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+
+:root {
+  --cyber-bg: #050d1a;
+  --cyber-cyan: #00f5d4;
+  --cyber-red: #ff2d55;
+  --cyber-dark: #0a1628;
+  --cyber-card-bg: rgba(10, 22, 40, 0.9);
+  --cyber-border: rgba(0, 245, 212, 0.1);
+  --cyber-glow: rgba(0, 245, 212, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--cyber-bg);
+  color: #e0e0e0;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   DOT-GRID BACKGROUND PATTERN
+   ============================================================ */
+
+.dot-grid {
+  background-image: radial-gradient(
+    circle,
+    rgba(0, 245, 212, 0.12) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  background-position: 0 0;
+}
+
+.dot-grid-subtle {
+  background-image: radial-gradient(
+    circle,
+    rgba(0, 245, 212, 0.06) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+}
+
+/* ============================================================
+   SCANLINE KEYFRAME & OVERLAY
+   ============================================================ */
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes scanline-flicker {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.06; }
+}
+
+.scanline-overlay {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanline-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+  animation: scanline-flicker 4s ease-in-out infinite;
+}
+
+.scanline-moving::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 245, 212, 0.4),
+    transparent
+  );
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ============================================================
+   NEON GLOW UTILITIES
+   ============================================================ */
+
+.neon-glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 245, 212, 0.15);
+  border: 1px solid rgba(0, 245, 212, 0.1);
+}
+
+.neon-glow-cyan-strong {
+  box-shadow: 0 0 30px rgba(0, 245, 212, 0.4), 0 0 60px rgba(0, 245, 212, 0.2);
+  border: 1px solid rgba(0, 245, 212, 0.3);
+}
+
+.neon-glow-red {
+  box-shadow: 0 0 20px rgba(255, 45, 85, 0.3);
+  border: 1px solid rgba(255, 45, 85, 0.2);
+}
+
+.neon-glow-red-strong {
+  box-shadow: 0 0 40px rgba(255, 45, 85, 0.6), 0 0 80px rgba(255, 45, 85, 0.3);
+  border: 1px solid rgba(255, 45, 85, 0.4);
+}
+
+.text-neon-cyan {
+  color: #00f5d4;
+  text-shadow: 0 0 10px rgba(0, 245, 212, 0.6);
+}
+
+.text-neon-red {
+  color: #ff2d55;
+  text-shadow: 0 0 10px rgba(255, 45, 85, 0.6);
+}
+
+/* ============================================================
+   PULSE KEYFRAME ANIMATIONS
+   ============================================================ */
+
+@keyframes pulse-cyan {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 245, 212, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 245, 212, 0.5), 0 0 80px rgba(0, 245, 212, 0.2);
+  }
+}
+
+@keyframes pulse-red {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 45, 85, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 60px rgba(255, 45, 85, 0.8), 0 0 100px rgba(255, 45, 85, 0.4);
+  }
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(0, 255, 100, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(0, 255, 100, 0.9);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-in-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes tick-up {
+  from { transform: translateY(4px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes critical-flash {
+  0% { opacity: 0; }
+  20% { opacity: 0.1; }
+  100% { opacity: 0; }
+}
+
+.animate-pulse-cyan {
+  animation: pulse-cyan 2s ease-in-out infinite;
+}
+
+.animate-pulse-red {
+  animation: pulse-red 1s ease-in-out infinite;
+}
+
+.animate-pulse-green {
+  animation: pulse-green 1.5s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out forwards;
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up 0.3s ease-out forwards;
+}
+
+.animate-tick-up {
+  animation: tick-up 0.3s ease-out forwards;
+}
+
+.animate-bounce-dot {
+  animation: bounce-dot 1.4s ease-in-out infinite;
+}
+
+.animate-critical-flash {
+  animation: critical-flash 0.2s ease-out forwards;
+}
+
+/* ============================================================
+   CARD PANEL BASE STYLES
+   ============================================================ */
+
+.cyber-card {
+  background: rgba(10, 22, 40, 0.9);
+  border: 1px solid rgba(0, 245, 212, 0.1);
+  box-shadow: 0 0 20px rgba(0, 245, 212, 0.15);
+  border-radius: 4px;
+}
+
+.cyber-card-hover:hover {
+  border-color: rgba(0, 245, 212, 0.25);
+  box-shadow: 0 0 30px rgba(0, 245, 212, 0.25);
+  transition: all 0.2s ease;
+}
+
+/* ============================================================
+   ANOMALY STATE — PULSING RED GLOW ON ALL PANELS
+   ============================================================ */
+
+.anomaly-active .cyber-card {
+  animation: pulse-red 1s ease-in-out infinite;
+  border-color: rgba(255, 45, 85, 0.3);
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(5, 13, 26, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 212, 0.3);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 245, 212, 0.5);
+}
+
+/* ============================================================
+   LIGHT MODE OVERRIDES
+   ============================================================ */
+
+.light-mode {
+  --cyber-bg: #f0f4ff;
+  --cyber-cyan: #0066cc;
+  --cyber-red: #cc0033;
+  --cyber-dark: #e0e8ff;
+  --cyber-card-bg: rgba(255, 255, 255, 0.95);
+  --cyber-border: rgba(0, 102, 204, 0.2);
+  --cyber-glow: rgba(0, 102, 204, 0.1);
+}
+
+.light-mode body {
+  background-color: #f0f4ff;
+  color: #0a1628;
+}
+
+.light-mode .cyber-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 102, 204, 0.2);
+  box-shadow: 0 0 20px rgba(0, 102, 204, 0.1);
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.transition-numeric {
+  transition: all 0.3s ease-out;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
