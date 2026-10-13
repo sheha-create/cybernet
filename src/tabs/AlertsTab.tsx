@@ -10,7 +10,7 @@ const AlertsTab: React.FC<AlertsTabProps> = ({ state }) => {
   const { alerts, unreadAlertCount, addToBlocklist, addToast, markAlertsRead, pinPanel } = state;
 
   return (
-    <div className="h-full p-3">
+    <div className="h-full p-3 overflow-auto flex flex-col min-h-0">
       <ThreatFeedPanel
         alerts={alerts}
         unreadAlertCount={unreadAlertCount}

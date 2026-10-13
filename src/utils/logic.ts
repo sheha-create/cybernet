@@ -13,15 +13,6 @@ export function isValidIPv4(s: string): boolean {
 }
 
 /**
- * Computes a deterministic threat score (0–99) seeded from the four IP octets.
- * Formula: (o1*7 + o2*13 + o3*3 + o4*17) % 100
- */
-export function computeThreatScore(ip: string): number {
-  const [o1, o2, o3, o4] = ip.split('.').map(Number);
-  return (o1 * 7 + o2 * 13 + o3 * 3 + o4 * 17) % 100;
-}
-
-/**
  * Maps an alert accumulation rate (alerts/min) to a ThreatLevel.
  * < 3  → LOW
  * 3–6  → MED

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { BlocklistEntry } from '../../types';
-import { isValidIPv4 } from '../../utils/logic';
+import { isValidIP, formatIP } from '../../utils/ip';
 import PanelMenu from '../PanelMenu';
 
 interface BlocklistManagerProps {
@@ -92,7 +92,7 @@ const BlocklistManager: React.FC<BlocklistManagerProps> = ({
 
   const handleAdd = () => {
     setAddError('');
-    if (!isValidIPv4(addIp.trim())) { setAddError('Invalid IPv4 address'); return; }
+    if (!isValidIP(addIp.trim())) { setAddError('Invalid IPv4 or IPv6 address'); return; }
     if (!addReason.trim()) { setAddError('Reason is required'); return; }
     addToBlocklist(addIp.trim(), addReason.trim(), addDuration);
     addToast(`Blocked ${addIp.trim()}`, 'success');
@@ -162,7 +162,7 @@ const BlocklistManager: React.FC<BlocklistManagerProps> = ({
                       className="accent-[#00f5d4]"
                     />
                   </td>
-                  <td className="py-1.5 text-[#00f5d4]">{entry.ip}</td>
+                  <td className="py-1.5 text-[#00f5d4] break-all">{formatIP(entry.ip)}</td>
                   <td className="py-1.5 text-gray-400 max-w-[160px] truncate">{entry.reason}</td>
                   <td className="py-1.5 text-gray-600 text-[10px]">
                     {entry.addedAt.toLocaleDateString()}
@@ -171,7 +171,7 @@ const BlocklistManager: React.FC<BlocklistManagerProps> = ({
                     {formatCountdown(entry.expiresAt)}
                   </td>
                   <td className="py-1.5">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                       expired
                         ? 'text-gray-600 border-[rgba(255,255,255,0.1)]'
                         : 'text-[#00ff88] border-[rgba(0,255,136,0.3)] bg-[rgba(0,255,136,0.05)]'
@@ -183,7 +183,7 @@ const BlocklistManager: React.FC<BlocklistManagerProps> = ({
                     <div className="flex gap-1">
                       <button
                         onClick={() => setShowRuleModal(entry)}
-                        className="text-[9px] px-1.5 py-0.5 rounded border border-[rgba(0,245,212,0.2)] text-gray-400 hover:text-[#00f5d4] transition-colors"
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-[rgba(0,245,212,0.2)] text-gray-400 hover:text-[#00f5d4] transition-colors"
                       >
                         Rule
                       </button>
@@ -194,7 +194,7 @@ const BlocklistManager: React.FC<BlocklistManagerProps> = ({
                             addToBlocklist(entry.ip, entry.reason, Math.max(1, Math.ceil((entry.expiresAt.getTime() - Date.now()) / 3600000)));
                           });
                         }}
-                        className="text-[9px] px-1.5 py-0.5 rounded border border-[rgba(255,45,85,0.2)] text-gray-500 hover:text-[#ff2d55] transition-colors"
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-[rgba(255,45,85,0.2)] text-gray-500 hover:text-[#ff2d55] transition-colors"
                       >
                         ✕
                       </button>

@@ -1,162 +1,165 @@
-import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { Alert } from '../../types';
+import type { ThreatLevel } from '../../types';
+import { useAuthContext } from '../../auth/AuthProvider';
+import { apiUrl } from '../../utils/api';
 import PanelMenu from '../PanelMenu';
 
-// Fix default icon issue
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
-
-interface VisitMarker {
-  id: number;
+interface GeoSource {
   ip: string;
-  country: string;
-  city: string;
-  isp: string;
-  asn: string;
-  abuseScore: number;
-  latitude: number | null;
-  longitude: number | null;
-  timestamp: string;
-  flagged: boolean;
+  eventCount: number;
+  lastSeen: string;
+  severity: ThreatLevel;
+  geo: {
+    country?: string;
+    countryCode?: string;
+    city?: string;
+    lat?: number;
+    lon?: number;
+    isp?: string;
+    proxy?: boolean;
+    hosting?: boolean;
+    private?: boolean;
+    lookupFailed?: boolean;
+  } | null;
 }
 
-interface GeoMapPanelProps {
-  alerts: Alert[];
-  visits: VisitMarker[];
-  addToBlocklist: (ip: string, reason: string, durationHours: number) => void;
-  addToast: (message: string, type: 'success' | 'warning' | 'error' | 'info') => void;
-  onRefresh?: () => void;
-  onPin?: (id: string) => void;
+const SEVERITY_COLOR: Record<ThreatLevel, string> = {
+  LOW: '#00f5d4',
+  MED: '#ffcc00',
+  HIGH: '#ff8c00',
+  CRITICAL: '#ff2d55',
+};
+
+function severityRank(severity: ThreatLevel): number {
+  return { LOW: 1, MED: 2, HIGH: 3, CRITICAL: 4 }[severity];
 }
 
-// Custom pulsing marker icon
-function createPulseIcon(severity: string) {
-  const color = severity === 'CRITICAL' ? '#ff2d55' : severity === 'HIGH' ? '#ff8c00' : '#00f5d4';
-  return L.divIcon({
-    className: '',
-    html: `<div style="
-      width: 12px; height: 12px;
-      background: ${color};
-      border-radius: 50%;
-      box-shadow: 0 0 0 0 ${color}80;
-      animation: pulse-marker 1.5s ease-out infinite;
-      border: 2px solid ${color};
-    "></div>
-    <style>
-      @keyframes pulse-marker {
-        0% { box-shadow: 0 0 0 0 ${color}80; }
-        70% { box-shadow: 0 0 0 8px transparent; }
-        100% { box-shadow: 0 0 0 0 transparent; }
-      }
-    </style>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
-  });
-}
-
-// Auto-pan to high severity alerts
-function MapAutoPan({ alerts }: { alerts: Alert[] }) {
-  const map = useMap();
-  const lastAlertRef = useRef<string>('');
+const GeoMapPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) => {
+  const { getIdToken } = useAuthContext();
+  const [sources, setSources] = useState<GeoSource[]>([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const highSeverity = alerts.find(a =>
-      (a.severity === 'CRITICAL' || a.severity === 'HIGH') && a.lat && a.lng
-    );
-    if (highSeverity && highSeverity.id !== lastAlertRef.current && highSeverity.lat && highSeverity.lng) {
-      lastAlertRef.current = highSeverity.id;
-      map.flyTo([highSeverity.lat, highSeverity.lng], 4, { duration: 1.5 });
-    }
-  }, [alerts, map]);
+    let active = true;
+    const refresh = async () => {
+      try {
+        const token = await getIdToken();
+        const response = await fetch(apiUrl('/api/threats/geo'), {
+          signal: AbortSignal.timeout(8_000),
+          headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        if (!response.ok || !active) return;
+        const data = await response.json() as { sources: GeoSource[] };
+        if (active) {
+          setSources(data.sources ?? []);
+          setError('');
+        }
+      } catch {
+        if (active) setError('Threat source lookup unavailable');
+      }
+    };
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [getIdToken]);
 
-  return null;
-}
+  const mappable = useMemo(
+    () => sources.filter(s => typeof s.geo?.lat === 'number' && typeof s.geo?.lon === 'number'),
+    [sources],
+  );
 
-const createVisitIcon = () => L.divIcon({
-  className: '',
-  html: `<div style="width: 10px; height: 10px; background: rgba(0,245,212,0.9); border-radius: 50%; border: 1px solid #00f5d4"></div>`,
-  iconSize: [10, 10],
-  iconAnchor: [5, 5],
-});
+  const peakSeverity = useMemo(
+    () => sources.reduce<ThreatLevel | null>(
+      (worst, s) => (worst === null || severityRank(s.severity) > severityRank(worst) ? s.severity : worst),
+      null,
+    ),
+    [sources],
+  );
 
-const GeoMapPanel: React.FC<GeoMapPanelProps> = ({ alerts, visits, addToBlocklist, addToast, onRefresh, onPin }) => {
-  const geoAlerts = alerts.filter(a => a.lat && a.lng).slice(0, 50);
-  const visitMarkers = visits.filter(v => v.latitude != null && v.longitude != null).slice(0, 120);
-
-  const handleBlock = (alert: Alert) => {
-    addToBlocklist(alert.sourceIP, `Geo-blocked: ${alert.eventType}`, 24);
-    addToast(`Blocked ${alert.sourceIP}`, 'success');
-  };
+  const unlocated = sources.length - mappable.length;
+  const maxCount = Math.max(1, ...mappable.map(s => s.eventCount));
 
   return (
-    <div className="cyber-card p-4 flex flex-col gap-2 h-full">
+    <div className="cyber-card p-4 flex flex-col gap-3 h-full">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-xs uppercase tracking-widest text-[#00f5d4]">Threat Map</span>
-        <PanelMenu panelId="geomap" title="Threat Map" onRefresh={onRefresh} onPin={onPin} />
+        <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-[#00f5d4]">Threat Map</span>
+          <div className="font-mono text-[10px] text-gray-500 mt-1">
+            Geolocation of source addresses observed against your account
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] text-gray-600">{sources.length} sources</span>
+          <PanelMenu panelId="geomap" title="Threat Map" data={sources} onPin={onPin} />
+        </div>
       </div>
 
-      <div className="flex-1 rounded overflow-hidden" style={{ minHeight: 200 }}>
-        <MapContainer
-          center={[20, 0]}
-          zoom={2}
-          style={{ height: '100%', width: '100%', background: '#050d1a' }}
-          zoomControl={false}
-          attributionControl={false}
-        >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          />
-          <MapAutoPan alerts={alerts} />
-          {geoAlerts.map(alert => (
-            <Marker
-              key={alert.id}
-              position={[alert.lat!, alert.lng!]}
-              icon={createPulseIcon(alert.severity)}
-            >
-              <Popup>
-                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, background: '#0a1628', color: '#e0e0e0', padding: 8, borderRadius: 4, minWidth: 180 }}>
-                  <div style={{ color: '#00f5d4', marginBottom: 4 }}>{alert.eventType}</div>
-                  <div>IP: {alert.sourceIP}</div>
-                  <div>Port: {alert.targetPort}</div>
-                  <div>Severity: <span style={{ color: alert.severity === 'CRITICAL' ? '#ff2d55' : alert.severity === 'HIGH' ? '#ff8c00' : '#ffcc00' }}>{alert.severity}</span></div>
-                  <button
-                    onClick={() => handleBlock(alert)}
-                    style={{ marginTop: 6, padding: '2px 8px', background: 'rgba(255,45,85,0.15)', border: '1px solid rgba(255,45,85,0.4)', color: '#ff2d55', borderRadius: 2, cursor: 'pointer', fontSize: 10 }}
-                  >
-                    Block IP
-                  </button>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-          {visitMarkers.map(visit => (
-            <Marker
-              key={`visit-${visit.id}`}
-              position={[visit.latitude!, visit.longitude!]}
-              icon={createVisitIcon()}
-            >
-              <Popup>
-                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, background: '#0a1628', color: '#e0e0e0', padding: 8, borderRadius: 4, minWidth: 180 }}>
-                  <div style={{ color: '#00f5d4', marginBottom: 4 }}>Live Visit</div>
-                  <div>IP: {visit.ip}</div>
-                  <div>Country: {visit.country}</div>
-                  <div>ISP: {visit.isp}</div>
-                  <div>Abuse Score: {visit.abuseScore}</div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
+      <div className="flex-1 min-h-0 rounded overflow-hidden border border-[rgba(0,245,212,0.12)]">
+        {mappable.length > 0 ? (
+          <MapContainer center={[20, 0]} zoom={2} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              attribution='&copy; OpenStreetMap'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {mappable.map(source => {
+              const radius = 6 + Math.min(14, (source.eventCount / maxCount) * 14);
+              return (
+                <CircleMarker
+                  key={source.ip}
+                  center={[source.geo!.lat as number, source.geo!.lon as number]}
+                  radius={radius}
+                  pathOptions={{
+                    color: SEVERITY_COLOR[source.severity],
+                    fillColor: SEVERITY_COLOR[source.severity],
+                    fillOpacity: 0.35,
+                    weight: 1.5,
+                  }}
+                >
+                  <Popup>
+                    <div style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                      <div><b>{source.ip}</b></div>
+                      <div>severity: {source.severity}</div>
+                      <div>events: {source.eventCount}</div>
+                      <div>location: {[source.geo?.city, source.geo?.country].filter(Boolean).join(', ') || 'unknown'}</div>
+                      {source.geo?.isp && <div>isp: {source.geo.isp}</div>}
+                      <div>last seen: {new Date(source.lastSeen).toLocaleString()}</div>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })}
+          </MapContainer>
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center gap-2 text-center px-6">
+            <span className="font-mono text-xs text-gray-500">
+              {sources.length === 0
+                ? 'No observed sources yet'
+                : `${sources.length} source${sources.length === 1 ? '' : 's'} observed, none publicly geolocatable`}
+            </span>
+            {sources.length > 0 && unlocated > 0 && (
+              <span className="font-mono text-[10px] text-gray-600">
+                Private and loopback addresses cannot be placed on a map.
+              </span>
+            )}
+            {error && <span className="font-mono text-[10px] text-[#ff2d55]">{error}</span>}
+          </div>
+        )}
       </div>
+
+      {sources.length > 0 && (
+        <div className="flex items-center gap-3 font-mono text-[10px] text-gray-500 border-t border-[rgba(255,255,255,0.08)] pt-2 flex-wrap">
+          <span>PEAK {peakSeverity ?? '—'}</span>
+          {mappable.length < sources.length && <span>UNMAPPED {unlocated}</span>}
+          {(['LOW', 'MED', 'HIGH', 'CRITICAL'] as ThreatLevel[]).map(severity => (
+            <span key={severity} className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ background: SEVERITY_COLOR[severity] }} />
+              {severity}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

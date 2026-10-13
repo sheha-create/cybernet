@@ -54,7 +54,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
       }
     });
     devices.forEach(d => {
-      if (d.ip.includes(q) || d.hostname.toLowerCase().includes(q)) {
+      if (d.ip.includes(q) || d.name.toLowerCase().includes(q)) {
         res.push({ kind: 'device', item: d });
       }
     });
@@ -105,7 +105,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                   <div className="px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-gray-600 bg-[rgba(0,0,0,0.2)]">
                     {labels[kind]}
                   </div>
-                  {group.map((r, i) => {
+                  {group.map(r => {
                     const globalIdx = results.indexOf(r);
                     const isSelected = globalIdx === selected;
                     return (
@@ -131,7 +131,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                         {r.kind === 'device' && (
                           <>
                             <span className="text-[#00f5d4]">⬡</span>
-                            <span>{r.item.hostname}</span>
+                            <span>{r.item.name}</span>
                             <span className="text-gray-500 ml-auto">{r.item.ip}</span>
                           </>
                         )}

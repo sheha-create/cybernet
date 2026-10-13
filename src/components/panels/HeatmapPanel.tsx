@@ -27,7 +27,7 @@ const HeatmapPanel: React.FC<HeatmapPanelProps> = ({ heatmapData, onRefresh, onP
           {Array.from({ length: 24 }, (_, h) => (
             <div
               key={h}
-              className="font-mono text-[8px] text-gray-600 flex-1 text-center"
+              className="font-mono text-[11px] text-gray-600 flex-1 text-center"
               style={{ minWidth: 0 }}
             >
               {h % 4 === 0 ? String(h).padStart(2, '0') : ''}
@@ -38,7 +38,7 @@ const HeatmapPanel: React.FC<HeatmapPanelProps> = ({ heatmapData, onRefresh, onP
         {/* Grid */}
         {heatmapData.map((row, dayIdx) => (
           <div key={dayIdx} className="flex items-center mb-0.5">
-            <div className="font-mono text-[9px] text-gray-600 w-8 flex-shrink-0 text-right pr-1">
+            <div className="font-mono text-[10px] text-gray-600 w-8 flex-shrink-0 text-right pr-1">
               {DAY_LABELS[dayIdx]}
             </div>
             {row.map(cell => {
@@ -67,14 +67,14 @@ const HeatmapPanel: React.FC<HeatmapPanelProps> = ({ heatmapData, onRefresh, onP
 
         {/* Color scale legend */}
         <div className="flex items-center gap-2 mt-2">
-          <span className="font-mono text-[9px] text-gray-600">Low</span>
+          <span className="font-mono text-[10px] text-gray-600">Low</span>
           <div
             className="flex-1 h-2 rounded"
             style={{
               background: 'linear-gradient(to right, #0a1628, #00f5d4, #ff2d55)',
             }}
           />
-          <span className="font-mono text-[9px] text-gray-600">High</span>
+          <span className="font-mono text-[10px] text-gray-600">High</span>
         </div>
       </div>
 

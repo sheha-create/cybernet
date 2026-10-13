@@ -3,12 +3,12 @@ import type { DashboardState } from '../hooks/useDashboardState';
 import OverviewPanel from '../components/panels/OverviewPanel';
 import DonutChartPanel from '../components/panels/DonutChartPanel';
 import SystemStatusBar from '../components/panels/SystemStatusBar';
+import CoreMapPanel from '../components/panels/CoreMapPanel';
 import TrafficChartPanel from '../components/panels/TrafficChartPanel';
 import TerminalPanel from '../components/panels/TerminalPanel';
 import GeoMapPanel from '../components/panels/GeoMapPanel';
 import HeatmapPanel from '../components/panels/HeatmapPanel';
 import IPLookupPanel from '../components/panels/IPLookupPanel';
-import MyIPPanel from '../components/panels/MyIPPanel';
 
 interface DashboardTabProps {
   state: DashboardState;
@@ -19,20 +19,19 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ state }) => {
     systemHealth, threatLevel, nodeCount,
     devices, donutFilter, setDonutFilter,
     trafficData, heatmapData,
-    cpuUsage, memoryUsage, storageUsage,
-    alerts, addToBlocklist, addToast,
-    myIP, myIPAlerts,
+    telemetry,
+    alerts,
     pinPanel, refreshPanel,
-    loadThreatDataForIP,
-    getTerminalLine,
     visitStats,
-    visitRecords,
+    userIp,
+    hostname,
+    backendOnline,
   } = state;
 
   return (
     <div className="flex flex-col gap-3 h-full overflow-auto p-3">
-      {/* Top row */}
-      <div className="grid grid-cols-3 gap-3" style={{ minHeight: 180 }}>
+      {/* Top row: collapses 3 -> 2 -> 1 as the viewport narrows */}
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 min-h-[260px]">
         <OverviewPanel
           systemHealth={systemHealth}
           nodeCount={nodeCount}
@@ -40,7 +39,11 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ state }) => {
           totalVisits={visitStats.totalVisits}
           uniqueIps={visitStats.uniqueIps}
           flaggedCount={visitStats.flaggedCount}
-          topCountries={visitStats.topCountries}
+          topSources={visitStats.topSources}
+          userIp={userIp}
+          hostname={hostname}
+          backendOnline={backendOnline}
+          observedAt={telemetry.observedAt}
           onRefresh={() => refreshPanel('overview')}
           onPin={pinPanel}
         />
@@ -52,50 +55,44 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ state }) => {
           onPin={pinPanel}
         />
         <SystemStatusBar
-          cpuUsage={cpuUsage}
-          memoryUsage={memoryUsage}
-          storageUsage={storageUsage}
+          cpuUsage={telemetry.cpuUsage}
+          memoryUsage={telemetry.memoryUsage}
+          storageUsage={telemetry.storageUsage ?? 0}
           nodeCount={nodeCount}
           threatLevel={threatLevel}
         />
       </div>
 
       {/* Middle row */}
-      <div className="grid grid-cols-2 gap-3" style={{ minHeight: 220 }}>
+      <div className="grid gap-3 grid-cols-1 xl:grid-cols-2 h-[340px] xl:h-[400px]">
+        <CoreMapPanel
+          cpuModel={telemetry.cpuModel}
+          perCore={telemetry.cpuCores}
+          source={telemetry.source}
+          hostname={telemetry.hostname}
+          onPin={pinPanel}
+        />
+        <TerminalPanel alerts={alerts} streamState={state.streamState} onPin={pinPanel} />
+      </div>
+
+      {/* Traffic row */}
+      <div className="grid gap-3 grid-cols-1 xl:grid-cols-2 h-[340px] xl:h-[400px]">
         <TrafficChartPanel
           trafficData={trafficData}
           onRefresh={() => refreshPanel('traffic')}
           onPin={pinPanel}
         />
-        <TerminalPanel
-          getTerminalLine={getTerminalLine}
-          onPin={pinPanel}
-        />
+        <GeoMapPanel onPin={pinPanel} />
       </div>
 
       {/* Bottom row */}
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(4, 1fr)', minHeight: 260 }}>
-        <GeoMapPanel
-          alerts={alerts}
-          visits={visitRecords}
-          addToBlocklist={addToBlocklist}
-          addToast={addToast}
-          onPin={pinPanel}
-        />
+      <div className="grid gap-3 grid-cols-1 xl:grid-cols-2 h-[340px] xl:h-[400px]">
         <HeatmapPanel
           heatmapData={heatmapData}
           onRefresh={() => refreshPanel('heatmap')}
           onPin={pinPanel}
         />
-        <IPLookupPanel
-          onPin={pinPanel}
-          onIPTracked={loadThreatDataForIP}
-        />
-        <MyIPPanel
-          myIP={myIP}
-          myIPAlerts={myIPAlerts}
-          onPin={pinPanel}
-        />
+        <IPLookupPanel onPin={pinPanel} />
       </div>
     </div>
   );

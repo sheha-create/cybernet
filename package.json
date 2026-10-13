@@ -4,19 +4,28 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k -n web,api -c cyan,magenta \"npm:dev:web\" \"npm:dev:api\"",
+    "dev:web": "vite",
+    "dev:api": "node server.js",
     "server": "node server.js",
-    "dev:full": "concurrently \"npm run dev\" \"npm run server\"",
-    "build": "tsc && vite build",
-    "start": "npm run build && node server.js",
+    "dev:full": "npm run dev",
+    "typecheck": "tsc -b --force",
+    "build": "tsc -b --force && vite build",
+    "start": "node server.js",
+    "start:production": "npm run build && node server.js",
     "preview": "vite preview",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "verify": "npm run typecheck && npm run test -- --run && npm run build"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "firebase": "^11.10.0",
+    "firebase-admin": "^14.5.0",
     "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

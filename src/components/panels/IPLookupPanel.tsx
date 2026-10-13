@@ -1,256 +1,221 @@
 import React, { useState } from 'react';
-import { isValidIPv4, computeThreatScore } from '../../utils/logic';
-import type { IPThreatData } from '../../utils/threatIntel';
-import { useAuthedFetch } from '../../auth/api';
+import { useAuthContext } from '../../auth/AuthContext';
+import { formatIP, ipFamily, isValidIP } from '../../utils/ip';
+import { apiUrl } from '../../utils/api';
 import PanelMenu from '../PanelMenu';
 
-interface IPLookupResult {
-  ip: string;
-  country_name?: string;
+interface Geo {
+  country?: string;
+  countryCode?: string;
   city?: string;
-  org?: string;
-  asn?: string;
-  timezone?: string;
-  latitude?: number;
-  longitude?: number;
-  abuseScore?: number;
-  totalReports?: number;
-  usageType?: string;
-  isVPN?: boolean;
-  isProxy?: boolean;
-  isBogon?: boolean;
-  isDatacenter?: boolean;
-  isResidential?: boolean;
-  isMobile?: boolean;
-  threatTypes?: string[];
-  error?: string;
+  lat?: number;
+  lon?: number;
+  isp?: string;
+  proxy?: boolean;
+  hosting?: boolean;
+  mobile?: boolean;
+  private?: boolean;
+  lookupFailed?: boolean;
 }
 
-interface IPLookupPanelProps {
-  onRefresh?: () => void;
-  onPin?: (id: string) => void;
-  onIPTracked?: (ip: string, threatData: IPThreatData) => void;
+interface Shodan {
+  indexed: boolean;
+  unavailable?: boolean;
+  ports: number[];
+  cves: string[];
+  tags: string[];
+  hostnames: string[];
+  cpes: string[];
 }
 
-const IPLookupPanel: React.FC<IPLookupPanelProps> = ({ onRefresh, onPin, onIPTracked }) => {
-  const authedFetch = useAuthedFetch();
+interface Intel {
+  ip: string;
+  family: 'IPv4' | 'IPv6' | null;
+  private: boolean;
+  note?: string;
+  geo: Geo | null;
+  shodan: Shodan;
+  threat: { score: number; reasons: string[] };
+  observed: { eventCount: number; lastSeen: string | null; highestSeverity: string | null } | null;
+  generatedAt: string;
+  cached: boolean;
+}
+
+function scoreColor(score: number): string {
+  if (score >= 60) return '#ff2d55';
+  if (score >= 30) return '#ffcc00';
+  if (score > 0) return '#00f5d4';
+  return '#00ff88';
+}
+
+function scoreLabel(score: number): string {
+  if (score >= 60) return 'HIGH RISK';
+  if (score >= 30) return 'SUSPICIOUS';
+  if (score > 0) return 'LOW RISK';
+  return 'NO RISK FOUND';
+}
+
+const RISKY_PORTS: Record<number, string> = {
+  21: 'FTP', 23: 'Telnet', 69: 'TFTP', 135: 'RPC', 139: 'NetBIOS', 445: 'SMB',
+  1433: 'MSSQL', 3306: 'MySQL', 3389: 'RDP', 5432: 'PostgreSQL', 5900: 'VNC',
+  6379: 'Redis', 9200: 'Elasticsearch', 27017: 'MongoDB',
+};
+
+const IPLookupPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) => {
+  const { getIdToken } = useAuthContext();
   const [ip, setIp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<IPLookupResult | null>(null);
-  const [threatData, setThreatData] = useState<IPThreatData | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [result, setResult] = useState<Intel | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setResult(null);
-    setThreatData(null);
-
-    if (!isValidIPv4(ip.trim())) {
-      setError('Invalid IPv4 address');
+  const lookup = async (target: string) => {
+    const candidate = target.trim();
+    if (!isValidIP(candidate)) {
+      setError('Enter a valid IPv4 or IPv6 address, for example 8.8.8.8 or 2606:4700:4700::1111');
       return;
     }
-
+    setError('');
     setLoading(true);
     try {
-      const res = await authedFetch(`/api/lookup/${ip.trim()}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as IPLookupResult;
-      if ((data as any).error) throw new Error((data as any).error);
-      setResult(data);
-
-      if (data.abuseScore != null) {
-        const threats: IPThreatData = {
-          ip: data.ip,
-          country: data.country_name || data.city || 'Unknown',
-          city: data.city || 'Unknown',
-          isp: data.org || 'Unknown',
-          asn: data.asn || 'Unknown',
-          latitude: data.latitude || 0,
-          longitude: data.longitude || 0,
-          abuseScore: data.abuseScore,
-          totalReports: data.totalReports || 0,
-          isVPN: data.isVPN || false,
-          isProxy: data.isProxy || false,
-          isBogon: data.isBogon || false,
-          isDatacenter: data.isDatacenter || false,
-          isResidential: data.isResidential || false,
-          isMobile: data.isMobile || false,
-          usageType: data.usageType || 'Unknown',
-          threatTypes: data.threatTypes || [],
-          recentActivity: (data.totalReports || 0) > 0,
-        };
-
-        setThreatData(threats);
-        if (onIPTracked) {
-          onIPTracked(ip.trim(), threats);
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lookup failed');
+      const token = await getIdToken();
+      const response = await fetch(apiUrl(`/api/ip/intel?ip=${encodeURIComponent(candidate)}`), {
+        signal: AbortSignal.timeout(20_000),
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!response.ok) throw new Error(`Lookup failed (${response.status})`);
+      setResult(await response.json() as Intel);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Lookup failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const threatScore = threatData ? threatData.abuseScore : (result ? computeThreatScore(result.ip) : 0);
-
-  const reportText = result ? `
-IP LOOKUP REPORT
-================
-IP:        ${result.ip}
-Country:   ${result.country_name ?? threatData?.country ?? 'N/A'}
-City:      ${result.city ?? threatData?.city ?? 'N/A'}
-ISP:       ${result.org ?? threatData?.isp ?? 'N/A'}
-ASN:       ${result.asn ?? threatData?.asn ?? 'N/A'}
-Timezone:  ${result.timezone ?? 'N/A'}
-Lat/Lng:   ${result.latitude ?? threatData?.latitude ?? 'N/A'}, ${result.longitude ?? threatData?.longitude ?? 'N/A'}
-
-THREAT INTELLIGENCE
-===================
-Abuse Score: ${threatScore}/100
-Total Reports: ${threatData?.totalReports ?? 0}
-Threat Types: ${threatData?.threatTypes.join(', ') ?? 'Clean'}
-Usage Type: ${threatData?.usageType ?? 'Unknown'}
-VPN: ${threatData?.isVPN ? 'Yes' : 'No'}
-Proxy: ${threatData?.isProxy ? 'Yes' : 'No'}
-Datacenter: ${threatData?.isDatacenter ? 'Yes' : 'No'}
-Bogon: ${threatData?.isBogon ? 'Yes' : 'No'}
-Residential: ${threatData?.isResidential ? 'Yes' : 'No'}
-Mobile: ${threatData?.isMobile ? 'Yes' : 'No'}
-
-Generated: ${new Date().toISOString()}
-`.trim() : '';
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(reportText).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const scoreColor = threatScore > 70 ? '#ff2d55' : threatScore > 40 ? '#ffcc00' : '#00ff88';
-
   return (
     <div className="cyber-card p-4 flex flex-col gap-3 h-full">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-xs uppercase tracking-widest text-[#00f5d4]">IP Lookup</span>
-        <PanelMenu panelId="iplookup" title="IP Lookup" data={result} onRefresh={onRefresh} onPin={onPin} />
+        <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-[#00f5d4]">IP Intelligence</span>
+          <div className="font-mono text-[10px] text-gray-500 mt-1">
+            Passive lookup from Shodan InternetDB and geolocation. The target is never probed.
+          </div>
+        </div>
+        <PanelMenu panelId="iplookup" title="IP Intelligence" data={result} onPin={onPin} />
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <div className="flex-1">
-          <input
-            value={ip}
-            onChange={e => { setIp(e.target.value); setError(''); }}
-            placeholder="Enter IPv4 address..."
-            className={`w-full bg-[rgba(0,0,0,0.3)] border font-mono text-xs text-gray-200 px-2 py-1.5 rounded outline-none transition-colors ${
-              error ? 'border-[rgba(255,45,85,0.5)]' : 'border-[rgba(0,245,212,0.2)] focus:border-[rgba(0,245,212,0.5)]'
-            }`}
-          />
-          {error && <div className="text-[#ff2d55] font-mono text-[10px] mt-0.5">{error}</div>}
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="font-mono text-xs px-3 py-1.5 rounded border border-[rgba(0,245,212,0.3)] text-[#00f5d4] hover:bg-[rgba(0,245,212,0.08)] transition-colors disabled:opacity-50"
-        >
-          {loading ? '...' : 'LOOKUP'}
+      <form onSubmit={e => { e.preventDefault(); lookup(ip); }} className="flex gap-2">
+        <input
+          value={ip}
+          onChange={e => setIp(e.target.value)}
+          placeholder="IPv4 or IPv6 address, e.g. 2606:4700:4700::1111"
+          className="flex-1 bg-black/30 border border-[rgba(0,245,212,0.2)] font-mono text-xs text-gray-200 px-2 py-1.5 rounded outline-none focus:border-[rgba(0,245,212,0.5)]"
+        />
+        <button type="submit" disabled={loading} className="font-mono text-xs px-3 py-1.5 rounded border border-[rgba(0,245,212,0.3)] text-[#00f5d4] disabled:opacity-50">
+          {loading ? '...' : 'CHECK'}
         </button>
       </form>
 
-      {result && (
-        <div
-          className="flex-1 overflow-y-auto font-mono text-xs rounded p-3 space-y-2"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(0,245,212,0.1)' }}
-        >
-          <div className="text-[#00f5d4] text-[10px] uppercase tracking-widest mb-2">// WHOIS & THREAT REPORT</div>
-          
-          {/* Geolocation Info */}
-          <div className="space-y-1">
-            {[
-              ['IP', result.ip],
-              ['Country', threatData?.country || result.country_name || 'N/A'],
-              ['City', threatData?.city || result.city || 'N/A'],
-              ['ISP', threatData?.isp || result.org || 'N/A'],
-              ['ASN', threatData?.asn || result.asn || 'N/A'],
-              ['Timezone', result.timezone || 'N/A'],
-              ['Lat/Lng', `${threatData?.latitude || result.latitude || 'N/A'}, ${threatData?.longitude || result.longitude || 'N/A'}`],
-            ].map(([k, v]) => (
-              <div key={k} className="flex gap-2">
-                <span className="text-gray-500 w-20 flex-shrink-0">{k}:</span>
-                <span className="text-gray-200">{v}</span>
-              </div>
-            ))}
+      {error && <div className="font-mono text-[10px] text-[#ff2d55]">{error}</div>}
+
+      {result ? (
+        <div className="flex-1 min-h-0 overflow-auto font-mono text-xs space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-gray-100 text-sm break-all">{formatIP(result.ip)}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] px-1.5 py-0.5 rounded border border-[rgba(255,255,255,0.15)] text-gray-400">
+                {result.family ?? (ipFamily(result.ip) ?? '—')}
+              </span>
+              <span
+                className="text-[10px] px-2 py-0.5 rounded border"
+                style={{
+                  color: scoreColor(result.threat.score),
+                  borderColor: `${scoreColor(result.threat.score)}55`,
+                  background: `${scoreColor(result.threat.score)}11`,
+                }}
+              >
+                {scoreLabel(result.threat.score)} · {result.threat.score}
+              </span>
+            </div>
           </div>
 
-          {/* Threat Intelligence */}
-          {threatData && (
+          {result.private ? (
+            <div className="text-[10px] text-gray-500 leading-relaxed">{result.note}</div>
+          ) : (
             <>
-              <div className="border-t border-[rgba(0,245,212,0.1)] pt-2 mt-2">
-                <div className="text-[#ff6b9d] text-[10px] uppercase tracking-widest mb-1">⚠ THREAT INTEL</div>
-                <div className="space-y-0.5">
-                  <div className="flex gap-2">
-                    <span className="text-gray-500 w-20 flex-shrink-0">Abuse Score:</span>
-                    <span style={{ color: scoreColor, textShadow: `0 0 6px ${scoreColor}80` }}>
-                      {threatScore}/100
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-gray-500 w-20 flex-shrink-0">Reports:</span>
-                    <span className="text-gray-200">{threatData.totalReports}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-gray-500 w-20 flex-shrink-0">Threats:</span>
-                    <span className="text-[#ffcc00] text-[10px]">
-                      {threatData.threatTypes.join(', ') || 'Clean'}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-gray-500 w-20 flex-shrink-0">Usage:</span>
-                    <span className="text-gray-200">{threatData.usageType}</span>
-                  </div>
-                  
-                  {/* Flags */}
-                  <div className="flex gap-1 flex-wrap mt-1">
-                    {threatData.isVPN && <span className="px-1 py-0.5 bg-[rgba(255,45,85,0.2)] text-[#ff2d55] text-[9px] rounded">VPN</span>}
-                    {threatData.isProxy && <span className="px-1 py-0.5 bg-[rgba(255,45,85,0.2)] text-[#ff2d55] text-[9px] rounded">PROXY</span>}
-                    {threatData.isDatacenter && <span className="px-1 py-0.5 bg-[rgba(255,193,7,0.2)] text-[#ffcc00] text-[9px] rounded">DC</span>}
-                    {threatData.isBogon && <span className="px-1 py-0.5 bg-[rgba(255,45,85,0.2)] text-[#ff2d55] text-[9px] rounded">BOGON</span>}
-                    {threatData.isResidential && <span className="px-1 py-0.5 bg-[rgba(0,245,212,0.2)] text-[#00f5d4] text-[9px] rounded">RES</span>}
-                    {threatData.isMobile && <span className="px-1 py-0.5 bg-[rgba(0,245,212,0.2)] text-[#00f5d4] text-[9px] rounded">MOBILE</span>}
-                  </div>
+              {result.geo && !result.geo.lookupFailed && (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                  <span className="text-gray-500">location <b className="text-gray-200">{[result.geo.city, result.geo.country].filter(Boolean).join(', ') || 'unknown'}</b></span>
+                  <span className="text-gray-500">isp <b className="text-gray-200">{result.geo.isp ?? 'unknown'}</b></span>
+                  <span className="text-gray-500">coordinates <b className="text-gray-200">{result.geo.lat != null ? `${result.geo.lat}, ${result.geo.lon}` : 'n/a'}</b></span>
+                  <span className="text-gray-500">flags <b className={result.geo.proxy || result.geo.hosting ? 'text-[#ffcc00]' : 'text-[#00ff88]'}>
+                    {[result.geo.proxy && 'proxy', result.geo.hosting && 'hosting', result.geo.mobile && 'mobile'].filter(Boolean).join(', ') || 'none'}
+                  </b></span>
                 </div>
-              </div>
+              )}
+
+              {result.shodan.indexed ? (
+                <div className="space-y-2">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Shodan InternetDB</div>
+                  {result.shodan.hostnames.length > 0 && (
+                    <div className="text-[10px] text-gray-400 break-all">hostnames: {result.shodan.hostnames.join(', ')}</div>
+                  )}
+                  {result.shodan.ports.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {result.shodan.ports.map(port => (
+                        <span
+                          key={port}
+                          className="text-[10px] px-1.5 py-0.5 rounded border"
+                          style={RISKY_PORTS[port]
+                            ? { color: '#ff8c00', borderColor: 'rgba(255,140,0,0.35)', background: 'rgba(255,140,0,0.08)' }
+                            : { color: '#00f5d4', borderColor: 'rgba(0,245,212,0.25)' }}
+                          title={RISKY_PORTS[port] ?? 'Known open port'}
+                        >
+                          {port}{RISKY_PORTS[port] ? ` ${RISKY_PORTS[port]}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-gray-600">No known open ports in Shodan records.</div>
+                  )}
+                  {result.shodan.cves.length > 0 && (
+                    <div className="text-[10px] text-[#ff2d55] break-all">CVEs: {result.shodan.cves.join(', ')}</div>
+                  )}
+                  {result.shodan.tags.length > 0 && (
+                    <div className="text-[10px] text-gray-400">tags: {result.shodan.tags.join(', ')}</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-[10px] text-gray-600">
+                  {result.shodan.unavailable
+                    ? 'Shodan InternetDB is unreachable right now.'
+                    : 'Shodan has no scan record for this address.'}
+                </div>
+              )}
+
+              {result.threat.reasons.length > 0 && (
+                <div className="text-[10px] text-gray-400 space-y-0.5">
+                  {result.threat.reasons.map(reason => <div key={reason}>• {reason}</div>)}
+                </div>
+              )}
+
+              {result.observed && result.observed.eventCount > 0 && (
+                <div className="border-t border-[rgba(0,245,212,0.12)] pt-2 text-[10px]">
+                  <span className="text-gray-500">observed against your account: </span>
+                  <b className="text-[#ff2d55]">{result.observed.eventCount}</b>
+                  <span className="text-gray-500"> event(s), highest </span>
+                  <b className="text-[#ffcc00]">{result.observed.highestSeverity ?? 'n/a'}</b>
+                </div>
+              )}
             </>
           )}
 
-          <div className="flex gap-2 pt-1 border-t border-[rgba(0,245,212,0.1)]">
-            <span className="text-gray-500 w-20 flex-shrink-0">Risk Level:</span>
-            <span style={{ color: scoreColor, textShadow: `0 0 6px ${scoreColor}80` }}>
-              {threatScore > 75 ? '🔴 CRITICAL' : threatScore > 50 ? '🟠 HIGH' : threatScore > 25 ? '🟡 MEDIUM' : '🟢 LOW'}
-            </span>
+          <div className="text-[10px] text-gray-600 border-t border-[rgba(255,255,255,0.06)] pt-2">
+            Looked up {new Date(result.generatedAt).toLocaleTimeString()}{result.cached ? ' (cached)' : ''}. Passive database lookup only.
           </div>
-
-          <button
-            onClick={handleCopy}
-            className="mt-2 w-full font-mono text-[10px] py-1 rounded border border-[rgba(0,245,212,0.2)] text-gray-400 hover:text-[#00f5d4] transition-colors"
-          >
-            {copied ? '✓ Copied!' : '⎘ Copy Report'}
-          </button>
         </div>
-      )}
-
-      {!result && !loading && (
-        <div className="flex-1 flex items-center justify-center text-gray-600 font-mono text-xs">
-          Enter an IP to lookup
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex-1 flex items-center justify-center text-[#00f5d4] font-mono text-xs animate-glow-pulse">
-          Querying...
+      ) : (
+        <div className="flex-1 flex items-center justify-center font-mono text-[10px] text-gray-600 text-center px-4">
+          Check any public IPv4 or IPv6 address for location, known open ports, CVEs and risk flags.
         </div>
       )}
     </div>

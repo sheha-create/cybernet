@@ -33,7 +33,7 @@ const CustomTooltip = ({ active, payload, label }: {
 
 const TrafficChartPanel: React.FC<TrafficChartPanelProps> = ({ trafficData, onRefresh, onPin }) => {
   return (
-    <div className="cyber-card p-4 flex flex-col gap-3 h-full">
+    <div className="cyber-card p-4 flex flex-col gap-3 h-full min-h-0 overflow-hidden">
       <div className="flex items-center justify-between">
         <span className="font-mono text-xs uppercase tracking-widest text-[#00f5d4]">Network Traffic</span>
         <PanelMenu panelId="traffic" title="Network Traffic" data={trafficData} onRefresh={onRefresh} onPin={onPin} />
@@ -77,15 +77,6 @@ const TrafficChartPanel: React.FC<TrafficChartPanelProps> = ({ trafficData, onRe
               strokeDasharray="4 2"
               dot={false}
               activeDot={{ r: 3, fill: '#00f5d4' }}
-            />
-            <Line
-              type="monotone"
-              dataKey="latency"
-              name="Latency"
-              stroke="#a855f7"
-              strokeWidth={1.5}
-              dot={false}
-              activeDot={{ r: 3, fill: '#a855f7' }}
             />
           </LineChart>
         </ResponsiveContainer>

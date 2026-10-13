@@ -6,15 +6,18 @@
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
-      { "source": "/api/**", "function": "api" },
-      { "source": "/sse/metrics", "function": "sse" },
+      { "source": "/api/agent/report", "run": { "serviceId": "cybernet-api", "region": "us-central1" } },
+      { "source": "/api/**", "run": { "serviceId": "cybernet-api", "region": "us-central1" } },
+      { "source": "/sse/**", "run": { "serviceId": "cybernet-api", "region": "us-central1" } },
       { "source": "**", "destination": "/index.html" }
     ],
     "headers": [
       {
         "source": "**/*",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache" }
+          { "key": "Cache-Control", "value": "no-cache" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "no-referrer" }
         ]
       }
     ],
@@ -22,4 +25,3 @@
     "trailingSlash": false
   }
 }
-

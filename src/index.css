@@ -16,6 +16,19 @@
   --cyber-card-bg: rgba(10, 22, 40, 0.9);
   --cyber-border: rgba(0, 245, 212, 0.1);
   --cyber-glow: rgba(0, 245, 212, 0.15);
+
+  /* Motion tokens. Default ease-in-out feels mechanical on live data; these
+     decelerate harder so state changes read as physical rather than linear. */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+
+  /* Readability floor. Panels were using 8-9px text, which is unreadable on
+     anything other than a high-DPI monitor. */
+  --text-micro: 11px;
+  --text-label: 11px;
+  --text-body: 12px;
+  --text-value: 13px;
 }
 
 * {
@@ -101,7 +114,7 @@ body {
   );
   pointer-events: none;
   z-index: 1;
-  animation: scanline-flicker 4s ease-in-out infinite;
+  animation: scanline-flicker 4s var(--ease-in-out-soft) infinite;
 }
 
 .scanline-moving::before {
@@ -224,19 +237,19 @@ body {
 }
 
 .animate-pulse-cyan {
-  animation: pulse-cyan 2s ease-in-out infinite;
+  animation: pulse-cyan 2s var(--ease-in-out-soft) infinite;
 }
 
 .animate-pulse-red {
-  animation: pulse-red 1s ease-in-out infinite;
+  animation: pulse-red 1s var(--ease-in-out-soft) infinite;
 }
 
 .animate-pulse-green {
-  animation: pulse-green 1.5s ease-in-out infinite;
+  animation: pulse-green 1.5s var(--ease-in-out-soft) infinite;
 }
 
 .animate-glow-pulse {
-  animation: glow-pulse 2s ease-in-out infinite;
+  animation: glow-pulse 2s var(--ease-in-out-soft) infinite;
 }
 
 .animate-fade-in {
@@ -256,7 +269,7 @@ body {
 }
 
 .animate-bounce-dot {
-  animation: bounce-dot 1.4s ease-in-out infinite;
+  animation: bounce-dot 1.4s var(--ease-in-out-soft) infinite;
 }
 
 .animate-critical-flash {
@@ -264,28 +277,15 @@ body {
 }
 
 /* ============================================================
-   CARD PANEL BASE STYLES
+   CARD PANEL BASE STYLES  (see enhanced version in NEW ANIMATIONS block)
    ============================================================ */
-
-.cyber-card {
-  background: rgba(10, 22, 40, 0.9);
-  border: 1px solid rgba(0, 245, 212, 0.1);
-  box-shadow: 0 0 20px rgba(0, 245, 212, 0.15);
-  border-radius: 4px;
-}
-
-.cyber-card-hover:hover {
-  border-color: rgba(0, 245, 212, 0.25);
-  box-shadow: 0 0 30px rgba(0, 245, 212, 0.25);
-  transition: all 0.2s ease;
-}
 
 /* ============================================================
    ANOMALY STATE — PULSING RED GLOW ON ALL PANELS
    ============================================================ */
 
 .anomaly-active .cyber-card {
-  animation: pulse-red 1s ease-in-out infinite;
+  animation: pulse-red 1s var(--ease-in-out-soft) infinite;
   border-color: rgba(255, 45, 85, 0.3);
 }
 
@@ -334,6 +334,368 @@ body {
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(0, 102, 204, 0.2);
   box-shadow: 0 0 20px rgba(0, 102, 204, 0.1);
+}
+
+/* ============================================================
+   NEW ANIMATIONS — matrix-rain, flicker, data-stream
+   ============================================================ */
+
+@keyframes matrix-rain {
+  0%   { transform: translateY(-100%); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  8%        { opacity: 0.85; }
+  16%       { opacity: 1; }
+  32%       { opacity: 0.9; }
+  48%       { opacity: 1; }
+  60%       { opacity: 0.8; }
+  70%       { opacity: 1; }
+  85%       { opacity: 0.95; }
+}
+
+@keyframes data-stream {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 0% 100%; }
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes border-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(0,245,212,0.2); }
+  50%       { box-shadow: 0 0 18px rgba(0,245,212,0.6), 0 0 36px rgba(0,245,212,0.2); }
+}
+
+@keyframes progress-fill {
+  /* Scaled rather than width-animated: transforms are composited on the GPU,
+     whereas animating width forces layout on every frame. */
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes spike-flash {
+  0%, 100% { background: transparent; }
+  30%       { background: rgba(255,45,85,0.18); }
+  60%       { background: rgba(255,45,85,0.08); }
+}
+
+@keyframes row-flash {
+  0%   { background: rgba(0,245,212,0.12); }
+  100% { background: transparent; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes typing {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+@keyframes blink-caret {
+  0%, 100% { border-color: transparent; }
+  50%       { border-color: #00f5d4; }
+}
+
+/* ============================================================
+   STATUS UTILITY CLASSES
+   ============================================================ */
+
+.status-online {
+  color: #00ff88;
+  text-shadow: 0 0 8px rgba(0,255,136,0.7);
+  border-color: rgba(0,255,136,0.4) !important;
+}
+
+.status-critical {
+  color: #ff2d55;
+  text-shadow: 0 0 8px rgba(255,45,85,0.7);
+  border-color: rgba(255,45,85,0.4) !important;
+  animation: pulse-red 1s var(--ease-in-out-soft) infinite;
+}
+
+.status-warning {
+  color: #ffcc00;
+  text-shadow: 0 0 8px rgba(255,204,0,0.6);
+  border-color: rgba(255,204,0,0.4) !important;
+}
+
+/* ============================================================
+   LIVE BADGE
+   ============================================================ */
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,255,136,0.4);
+  color: #00ff88;
+  background: rgba(0,255,136,0.06);
+}
+
+.live-badge::before {
+  content: '●';
+  font-size: 7px;
+  animation: live-pulse 1.2s var(--ease-in-out-soft) infinite;
+  display: inline-block;
+}
+
+/* ============================================================
+   PANEL HEADER
+   ============================================================ */
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(
+    90deg,
+    rgba(0,245,212,0.4) 0%,
+    rgba(0,245,212,0.1) 60%,
+    transparent 100%
+  ) 1;
+  margin-bottom: 8px;
+}
+
+/* ============================================================
+   METRIC VALUE — tabular numbers
+   ============================================================ */
+
+.metric-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   THREAT BAR — progress bar
+   ============================================================ */
+
+.threat-bar {
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.06);
+}
+
+.threat-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.threat-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+  animation: data-stream 1.5s linear infinite;
+}
+
+/* ============================================================
+   GRID OVERLAY — cyberpunk grid on backgrounds
+   ============================================================ */
+
+.grid-overlay {
+  position: relative;
+}
+
+.grid-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,245,212,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,212,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   IMPROVED CYBER-CARD DEPTH & SHADOW
+   ============================================================ */
+
+.cyber-card {
+  background: linear-gradient(
+    145deg,
+    rgba(12, 26, 46, 0.95) 0%,
+    rgba(8, 18, 32, 0.98) 100%
+  );
+  border: 1px solid rgba(0, 245, 212, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.3),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(0, 245, 212, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  position: relative;
+}
+
+.cyber-card-hover:hover {
+  border-color: rgba(0, 245, 212, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.3),
+    0 4px 20px rgba(0, 0, 0, 0.5),
+    0 0 36px rgba(0, 245, 212, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.25s ease;
+}
+
+/* ============================================================
+   SMOOTH PANEL SCROLLBAR
+   ============================================================ */
+
+.panel-scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,245,212,0.25) transparent;
+}
+
+.panel-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0,245,212,0.2);
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,245,212,0.45);
+}
+
+/* ============================================================
+   ANIMATION UTILITIES
+   ============================================================ */
+
+.animate-matrix-rain {
+  animation: matrix-rain linear infinite;
+}
+
+.animate-flicker {
+  animation: flicker 3s var(--ease-in-out-soft) infinite;
+}
+
+.animate-live-pulse {
+  animation: live-pulse 1.2s var(--ease-in-out-soft) infinite;
+}
+
+.animate-border-glow {
+  animation: border-glow 2s var(--ease-in-out-soft) infinite;
+}
+
+.animate-spike-flash {
+  animation: spike-flash 0.4s ease-out forwards;
+}
+
+.animate-row-flash {
+  animation: row-flash 0.8s ease-out forwards;
+}
+
+.animate-count-up {
+  animation: count-up 0.35s ease-out forwards;
+}
+
+/* ============================================================
+   ACCESSIBILITY — keyboard focus was previously invisible
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--cyber-cyan);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.cyber-card:focus-within {
+  border-color: rgba(0, 245, 212, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   LIVE VALUE — stops digits jittering as values tick over
+   ============================================================ */
+
+.value-live {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  transition: color 240ms var(--ease-out);
+}
+
+.value-changed {
+  animation: count-up 320ms var(--ease-out) forwards;
+}
+
+/* ============================================================
+   LAYOUT — panel grids that survive narrower viewports
+   ============================================================ */
+
+.stack-sm {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .stack-sm { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1400px) {
+  .stack-sm { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.stack-2col {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1100px) {
+  .stack-2col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Horizontal tab strip for narrow screens instead of an overflowing row. */
+.tab-scroll {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 /* ============================================================

@@ -10,9 +10,10 @@ export type AuthState = {
 
 export function useAuthState(): AuthState {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!auth); // only loading if Firebase is configured
 
   useEffect(() => {
+    if (!auth) return;
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -24,17 +25,19 @@ export function useAuthState(): AuthState {
 }
 
 export async function loginWithGoogle() {
+  if (!auth) throw new Error('Firebase not configured');
   const provider = new GoogleAuthProvider();
   await signInWithPopup(auth, provider);
 }
 
-// Email provider via popup (requires Firebase Auth Email link/credential settings in console)
 export async function loginWithEmail() {
+  if (!auth) throw new Error('Firebase not configured');
   const provider = new EmailAuthProvider();
   await signInWithPopup(auth, provider);
 }
 
 export async function logout() {
+  if (!auth) return;
   await auth.signOut();
 }
 

@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDashboardState } from './hooks/useDashboardState';
 import NavBar from './components/NavBar';
 import GlobalSearch from './components/GlobalSearch';
 import ToastManager from './components/ToastManager';
-import AIAdvisor from './components/AIAdvisor';
 import CriticalFlash from './components/CriticalFlash';
+import LiveStatusBar from './components/panels/LiveStatusBar';
 import DashboardTab from './tabs/DashboardTab';
 import DevicesTab from './tabs/DevicesTab';
 import AlertsTab from './tabs/AlertsTab';
 import ScansTab from './tabs/ScansTab';
 import ConfigTab from './tabs/ConfigTab';
-import RequireAuth from './auth/RequireAuth';
+import RequireAuth from './auth/RequireAuth.tsx';
 
 
 function App() {
@@ -27,7 +27,6 @@ function App() {
     toasts, removeToast,
     criticalFlash,
     alerts, devices, blocklist,
-    systemHealth, threatLevel,
   } = state;
 
   // Cmd+K / Ctrl+K global shortcut
@@ -58,49 +57,51 @@ function App() {
     anomalyActive ? 'anomaly-active' : '',
   ].filter(Boolean).join(' ');
 
-  return (
+return (
     <RequireAuth>
       <div className={rootClasses} style={{ background: 'var(--cyber-bg, #050d1a)' }}>
-      <NavBar
-        activeTab={activeTab}
+        <NavBar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          unreadAlertCount={state.unreadAlertCount}
+          darkMode={darkMode}
+          setDarkMode={state.setDarkMode}
+          streamState={state.streamState}
+          onSearchOpen={() => setSearchOpen(true)}
+        />
 
-        setActiveTab={setActiveTab}
-        unreadAlertCount={state.unreadAlertCount}
-        darkMode={darkMode}
-        setDarkMode={state.setDarkMode}
-        anomalyActive={anomalyActive}
-        onSearchOpen={() => setSearchOpen(true)}
-      />
+        <LiveStatusBar
+          streamState={state.streamState}
+          backendOnline={state.backendOnline}
+          lastFrameAt={state.lastFrameAt}
+          alertCount={state.alerts.length}
+          criticalCount={alerts.filter(alert => alert.severity === 'CRITICAL').length}
+        />
 
-      {/* Main content */}
-      <main className="flex-1 overflow-hidden dot-grid">
-        {activeTab === 'dashboard' && <DashboardTab state={state} />}
-        {activeTab === 'devices' && <DevicesTab state={state} />}
-        {activeTab === 'alerts' && <AlertsTab state={state} />}
-        {activeTab === 'scans' && <ScansTab state={state} />}
-        {activeTab === 'config' && <ConfigTab state={state} />}
-      </main>
+        {/* min-h-0 is required: a flex item defaults to min-height:auto, which would stop
+            main from shrinking and let tall dashboards overflow the viewport
+            instead of scrolling inside their own tab. */}
+        <main className="flex-1 min-h-0 overflow-hidden dot-grid">
+          {activeTab === 'dashboard' && <DashboardTab state={state} />}
+          {activeTab === 'devices' && <DevicesTab state={state} />}
+          {activeTab === 'alerts' && <AlertsTab state={state} />}
+          {activeTab === 'scans' && <ScansTab state={state} />}
+          {activeTab === 'config' && <ConfigTab state={state} />}
+        </main>
 
-      {/* Global overlays */}
-      <GlobalSearch
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        alerts={alerts}
-        devices={devices}
-        blocklist={blocklist}
-      />
+        {/* Global overlays */}
+        <GlobalSearch
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          alerts={alerts}
+          devices={devices}
+          blocklist={blocklist}
+        />
 
-      <ToastManager toasts={toasts} removeToast={removeToast} />
+        <ToastManager toasts={toasts} removeToast={removeToast} />
 
-      <AIAdvisor
-        systemHealth={systemHealth}
-        threatLevel={threatLevel}
-        anomalyActive={anomalyActive}
-        alerts={alerts}
-        blocklist={blocklist}
-      />
 
-      <CriticalFlash active={criticalFlash} />
+        <CriticalFlash active={criticalFlash} />
       </div>
     </RequireAuth>
   );

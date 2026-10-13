@@ -1,0 +1,24 @@
+# Keep secrets out of the Cloud Build upload context.
+.env
+.env.*
+!.env.example
+
+node_modules
+dist
+data
+logs
+functions
+.firebase
+.firebase-cache
+
+.git
+.gitignore
+.vscode
+.idea
+*.log
+npm-debug.log
+firebase-debug.log
+Dockerfile
+.dockerignore
+DEPLOYMENT.md
+README.md

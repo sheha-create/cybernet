@@ -1,0 +1,26 @@
+# Secrets must never be baked into an image.
+.env
+.env.*
+!.env.example
+
+# Build output and local state
+node_modules
+dist
+data
+logs
+functions
+.firebase
+.firebase-cache
+
+# Tooling noise
+.git
+.gitignore
+.vscode
+.idea
+*.log
+npm-debug.log
+firebase-debug.log
+Dockerfile
+.dockerignore
+DEPLOYMENT.md
+README.md

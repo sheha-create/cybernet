@@ -1,52 +1,36 @@
-# Cybernet Full Stack
+# CYBERNET Security Monitor
 
-This project includes a React/Vite frontend and an Express backend with real-time WebSocket alerts.
+CYBERNET is a deployable, no-key security monitor for a single Node.js service. It reports only observations made by the service itself:
 
-## What was added
+- request-rate threshold crossings
+- path traversal and injection signatures in incoming request paths
+- live CPU, memory, storage, and network byte-rate measurements from the host
 
-- `server.js` now captures every incoming request and resolves the real visitor IP using `x-forwarded-for` or `req.socket.remoteAddress`.
-- The backend calls `https://ipapi.co/{ip}/json/` for geolocation and `https://api.abuseipdb.com/api/v2/check` for abuse reputation.
-- Requests are stored in SQLite in `data/visits.sqlite` with fields for IP, country, city, ISP, ASN, abuse score, timestamp, and flagged state.
-- A `ws` WebSocket server runs on the same backend port and broadcasts live alert objects for flagged visitor events.
-- The frontend now connects to `ws://localhost:3001` and injects live alert messages into the Threat Feed with a `LIVE` badge.
-- The IP Lookup panel posts to `/api/lookup/{ip}` instead of calling ipapi directly.
-- Added backend endpoints:
-  - `GET /api/visits` — returns the last 200 logged visits for the Geolocation Map.
-  - `GET /api/stats` — returns total visits, unique IPs, flagged count, and top countries for the Overview panel.
-- The AbuseIPDB API key is stored in `.env`.
+It does not use demo events, IP reputation services, geolocation services, or third-party API keys. An empty alert feed means this instance has not recorded a detection.
 
-## Setup
-
-1. Install dependencies:
+## Run locally
 
 ```bash
-cd cybernet
-npm install
+npm ci
+npm run build
+npm start
 ```
 
-2. Verify the `.env` file exists with your AbuseIPDB key:
+Open `http://localhost:3001`.
 
-```env
-ABUSEIPDB_API_KEY=your_api_key_here
-```
+Copy `.env.example` to `.env` only when you need to override defaults. `TRUST_PROXY` must remain `false` unless the app runs behind a reverse proxy you control; otherwise source-IP reporting can be spoofed.
 
-3. Run the full stack in development:
+## Production deployment
+
+Build and run the container with persistent locations mounted for `/app/data` and `/app/logs`:
 
 ```bash
-npm run dev:full
+docker build -t cybernet-monitor .
+docker run --rm -p 3001:3001 -v cybernet-data:/app/data -v cybernet-logs:/app/logs cybernet-monitor
 ```
 
-This starts the frontend plus the backend server.
+The service exposes `GET /api/health` for liveness/readiness checks. Security events are retained in SQLite at `data/security-events.sqlite` and are also appended as NDJSON to `logs/security-events.ndjson`. Configure retention, detection rate, and paths with the environment variables documented in `.env.example`.
 
-## Getting a free AbuseIPDB API key
+## Detection scope
 
-1. Go to https://www.abuseipdb.com/
-2. Sign up for an account.
-3. Visit your account dashboard.
-4. Copy the API key and paste it into `cybernet/.env` as `ABUSEIPDB_API_KEY`.
-
-## Notes
-
-- The backend listens on port `3001`.
-- The frontend connects to `ws://localhost:3001` for live alerts.
-- Visit markers and the Overview panel now use real backend data when the server is available.
+This monitor is passive. It can detect suspicious requests that reach this deployed service and report host telemetry it can read. It cannot truthfully detect network traffic that is blocked upstream, addressed to another host, or hidden from the operating system. Put it behind TLS and an authenticated reverse proxy for internet-facing production use.

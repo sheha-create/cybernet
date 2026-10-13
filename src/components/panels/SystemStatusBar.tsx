@@ -21,7 +21,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, unit = '%', dange
   const displayColor = danger ? '#ff2d55' : (color ?? '#00f5d4');
   return (
     <div className="cyber-card px-3 py-2 flex flex-col gap-1 flex-1 min-w-0">
-      <span className="font-mono text-[9px] uppercase tracking-widest text-gray-500">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-widest text-gray-500">{label}</span>
       <div className="flex items-end gap-1">
         <span
           className="font-mono text-lg font-bold transition-numeric"
@@ -85,7 +85,7 @@ const SystemStatusBar: React.FC<SystemStatusBarProps> = ({
         color="#00f5d4"
       />
       <div className="cyber-card px-3 py-2 flex flex-col gap-1 flex-1 min-w-0">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-gray-500">Threat</span>
+        <span className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Threat</span>
         <span
           className="font-mono text-sm font-bold"
           style={{
