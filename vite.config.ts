@@ -4,6 +4,18 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Keeps the main bundle small: charting and mapping libraries only get
+        // parsed when their chunk is requested, in parallel with app code.
+        manualChunks: {
+          charts: ['recharts', 'd3-scale', 'd3-shape'],
+          maps: ['leaflet', 'react-leaflet'],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {

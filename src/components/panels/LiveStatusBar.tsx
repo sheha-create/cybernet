@@ -39,11 +39,11 @@ const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
   const now = useNow();
 
   const live = streamState === 'live';
-  const dotColor = live ? '#00ff88' : backendOnline ? '#ffcc00' : '#ff2d55';
-  const textColor = live ? '#00ff88' : backendOnline ? '#ffcc00' : '#ff2d55';
+  const dotColor = live ? 'var(--sev-low)' : backendOnline ? 'var(--sev-med)' : 'var(--sev-critical)';
+  const textColor = live ? 'var(--sev-low)' : backendOnline ? 'var(--sev-med)' : 'var(--sev-critical)';
 
   return (
-    <div className="flex items-center gap-3 px-3 py-1 border-b border-[rgba(0,245,212,0.12)] bg-[rgba(0,0,0,0.25)] font-mono text-[10px] shrink-0">
+    <div className="flex items-center gap-3 px-3 py-1 border-b border-[color:var(--accent-line)] font-mono text-[10px] shrink-0" style={{ background: 'var(--statusbar-bg, rgba(0,0,0,0.25))' }}>
       <span className="flex items-center gap-1.5" style={{ color: textColor }}>
         <span
           className={live ? 'animate-pulse' : ''}
@@ -64,7 +64,7 @@ const LiveStatusBar: React.FC<LiveStatusBarProps> = ({
       </span>
 
       {criticalCount > 0 && (
-        <span style={{ color: '#ff2d55' }}>
+        <span style={{ color: 'var(--sev-critical)' }}>
           {criticalCount} critical
         </span>
       )}

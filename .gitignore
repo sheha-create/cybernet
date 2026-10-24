@@ -13,6 +13,9 @@ logs/
 *.sqlite-journal
 *.ndjson
 
+# Local agent runtime file (contains the plaintext collector token)
+agent/.env
+
 # Editor / OS noise
 .DS_Store
 Thumbs.db

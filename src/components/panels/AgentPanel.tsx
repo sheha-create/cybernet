@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAgentRegistry } from '../../hooks/useBackendData';
-import type { AgentSample } from '../../types';
+import type { AgentStartResult, AgentSample } from '../../types';
 
 interface AgentPanelProps {
   agentSamples: AgentSample[];
@@ -26,18 +26,28 @@ function formatUptime(seconds: number): string {
 const LABEL_PRESETS = ['My PC', 'My Laptop', 'Office PC', 'Home Server', 'Test Agent'];
 
 const AgentPanel: React.FC<AgentPanelProps> = ({ agentSamples, serverUrl }) => {
-  const { agents, issueToken, revoke, busy, error } = useAgentRegistry();
+  const { agents, status, startAgent, revoke, busy, error } = useAgentRegistry();
   const [label, setLabel] = useState('');
-  const [issued, setIssued] = useState<{ label: string; token: string } | null>(null);
+  const [manual, setManual] = useState<AgentStartResult | null>(null);
+  const [message, setMessage] = useState('');
 
   const onlineSamples = new Map(agentSamples.map(sample => [sample.agentId, sample]));
-  const anyOnline = agentSamples.some(sample => sample.online);
+  const reporting = agentSamples.some(sample => sample.online);
+  const online = reporting || Boolean(status?.fresh);
 
-  const handleIssue = async () => {
-    const created = await issueToken(label.trim() || 'My PC');
-    if (created) {
-      setIssued({ label: created.label, token: created.token });
-      setLabel('');
+  const handleStart = async () => {
+    setMessage('');
+    const result = await startAgent(label.trim() || 'My PC');
+    setLabel('');
+    if (!result) return;
+    if (result.started) {
+      setMessage('Collector is running. Samples arrive every 5 seconds — the live host panels now read this machine.');
+      setManual(null);
+    } else {
+      // Server could not spawn the collector (remote deployment or
+      // autostart disabled). Fall back to the classic paste-it-yourself path.
+      setManual(result);
+      setMessage('Server cannot supervise a local collector — paste the token on the machine to monitor.');
     }
   };
 
@@ -49,44 +59,40 @@ const AgentPanel: React.FC<AgentPanelProps> = ({ agentSamples, serverUrl }) => {
           <div className="font-mono text-[10px] text-gray-500 mt-1">
             Reports this machine's real CPU, memory, storage and network figures to the dashboard.
           </div>
-        </div>
-        <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${anyOnline
+        </div>        <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${online
           ? 'text-[#00ff88] border-[rgba(0,255,136,0.3)] bg-[rgba(0,255,136,0.05)]'
-          : 'text-gray-500 border-[rgba(255,255,255,0.1)]'}`}>
-          {anyOnline ? 'ONLINE' : 'NO AGENT REPORTING'}
+          : 'text-gray-500 border-[color:var(--line-2)]'}`}>
+          {online ? 'LIVE' : 'NOT REPORTING'}
         </span>
       </div>
 
-      <div className="font-mono text-[10px] text-gray-500 leading-relaxed border border-[rgba(255,255,255,0.06)] rounded p-3 bg-[rgba(0,0,0,0.25)] space-y-1">
-        <div className="text-gray-300">Where the credentials go</div>
-        <div>The token is <span className="text-[#00f5d4]">not</span> typed into this page. It goes in one file on the machine you want to monitor:</div>
-        <div className="pl-2 text-gray-400">cybernet\agent\.env</div>
-        <div className="pt-1 text-gray-300">Steps</div>
-        <div>1. Type a label below, click <span className="text-[#00f5d4]">Generate token</span>, then copy it (shown once).</div>
-        <div>2. Open <code className="text-[#00f5d4]">agent\.env</code> and paste it after <code className="text-[#00f5d4]">CYBERNET_AGENT_TOKEN=</code></div>
-        <div>3. Run <code className="text-[#00f5d4]">node agent\collector.mjs</code> and leave it running.</div>
-        <div className="pt-1 text-gray-600">Until the agent runs, the Scans tab stays empty and the Core Load Map reads SERVER HOST instead of YOUR PC. More detail in agent/README.md.</div>
+      <div className="font-mono text-[10px] text-gray-500 leading-relaxed border border-[color:var(--line-1)] rounded p-3 bg-[rgba(0,0,0,0.25)] space-y-1">
+        <div className="text-gray-300">One-click setup</div>
+        <div>1. Type a label below (optional) and press <span className="text-[#00f5d4]">Start live agent</span>.</div>
+        <div>2. The server issues the token, stores it in <code className="text-[#00f5d4]">agent\.env</code> and starts the collector itself — nothing to copy, paste, or run.</div>
+        <div className="pt-1 text-gray-600">The collector restarts automatically whenever <code className="text-[#00f5d4]">npm run dev</code> runs, as long as the stored token is valid. Hosting the dashboard elsewhere? The button then hands you the token for the remote machine instead.</div>
       </div>
 
-      {issued && (
+      {manual && (
         <div className="border border-[rgba(0,245,212,0.3)] rounded p-3 bg-[rgba(0,245,212,0.05)] space-y-2">
-          <div className="font-mono text-[10px] text-[#00f5d4]">Token for "{issued.label}" — copy it now, it is not shown again.</div>
-          <code className="block font-mono text-[11px] text-[#00ff41] break-all">{issued.token}</code>
+          <div className="font-mono text-[10px] text-[#00f5d4]">Token for manual setup — shown once, never retrievable afterwards.</div>
+          <code className="block font-mono text-[11px] text-[#00ff41] break-all">{manual.token}</code>
           <div className="font-mono text-[10px] text-gray-500 break-all">
-            agent/.env:
+            On the target machine — agent/.env:
             <br />CYBERNET_SERVER_URL={serverUrl}
-            <br />CYBERNET_AGENT_TOKEN={issued.token}
+            <br />CYBERNET_AGENT_TOKEN={manual.token}
+            <br />Then: node agent/collector.mjs
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => { navigator.clipboard.writeText(issued.token); }}
+              onClick={() => { navigator.clipboard.writeText(manual.token ?? ''); }}
               className="font-mono text-[10px] px-2 py-0.5 rounded border border-[rgba(0,245,212,0.3)] text-[#00f5d4] hover:bg-[rgba(0,245,212,0.08)]"
             >
               ⎘ Copy token
             </button>
             <button
-              onClick={() => setIssued(null)}
-              className="font-mono text-[10px] px-2 py-0.5 rounded border border-[rgba(255,255,255,0.12)] text-gray-400 hover:text-gray-200"
+              onClick={() => setManual(null)}
+              className="font-mono text-[10px] px-2 py-0.5 rounded border border-[color:var(--line-2)] text-gray-400 hover:text-gray-200"
             >
               Dismiss
             </button>
@@ -106,8 +112,8 @@ const AgentPanel: React.FC<AgentPanelProps> = ({ agentSamples, serverUrl }) => {
               onClick={() => setLabel(preset)}
               className={`font-mono text-[10px] px-2 py-0.5 rounded border transition-colors ${
                 label === preset
-                  ? 'border-[rgba(0,245,212,0.5)] text-[#00f5d4] bg-[rgba(0,245,212,0.1)]'
-                  : 'border-[rgba(255,255,255,0.1)] text-gray-500 hover:text-gray-300 hover:border-[rgba(255,255,255,0.2)]'
+                  ? 'border-[rgba(0,245,212,0.5)] text-[#00f5d4] bg-[color:var(--accent-line)]'
+                  : 'border-[color:var(--line-2)] text-gray-500 hover:text-gray-300 hover:border-[rgba(255,255,255,0.2)]'
               }`}
             >
               {preset}
@@ -118,22 +124,23 @@ const AgentPanel: React.FC<AgentPanelProps> = ({ agentSamples, serverUrl }) => {
           <input
             value={label}
             onChange={event => setLabel(event.target.value)}
-            onKeyDown={event => { if (event.key === 'Enter') handleIssue(); }}
+            onKeyDown={event => { if (event.key === 'Enter') handleStart(); }}
             placeholder="My PC"
             maxLength={60}
             className="flex-1 bg-black/30 border border-[rgba(0,245,212,0.2)] font-mono text-xs text-gray-200 px-2 py-1.5 rounded outline-none focus:border-[rgba(0,245,212,0.5)]"
           />
           <button
-            onClick={handleIssue}
+            onClick={handleStart}
             disabled={busy}
-            className="font-mono text-xs px-3 py-1.5 rounded border border-[rgba(0,245,212,0.3)] text-[#00f5d4] hover:bg-[rgba(0,245,212,0.08)] disabled:opacity-50 whitespace-nowrap"
+            className="font-mono text-xs px-3 py-1.5 rounded border border-[rgba(0,245,212,0.4)] text-[#00f5d4] bg-[rgba(0,245,212,0.06)] hover:bg-[rgba(0,245,212,0.12)] disabled:opacity-50 whitespace-nowrap"
           >
-            {busy ? 'Working…' : 'Generate token'}
+            {busy ? 'Starting…' : '⚡ Start live agent'}
           </button>
         </div>
       </div>
 
       {error && <div className="font-mono text-[10px] text-[#ff2d55]">{error}</div>}
+      {message && <div className="font-mono text-[10px] text-[#00ff88]">{message}</div>}
 
       <div className="space-y-2">
         {agents.map(agent => {
@@ -141,8 +148,8 @@ const AgentPanel: React.FC<AgentPanelProps> = ({ agentSamples, serverUrl }) => {
           const revoked = Boolean(agent.revokedAt);
           return (
             <div key={agent.id} className={`border rounded p-3 font-mono text-[10px] ${revoked
-              ? 'border-[rgba(255,255,255,0.06)] opacity-50'
-              : 'border-[rgba(0,245,212,0.15)]'}`}>
+              ? 'border-[color:var(--line-1)] opacity-50'
+              : 'border-[color:var(--accent-line)]'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-gray-200 text-xs">{agent.label}</span>
                 <div className="flex items-center gap-2">

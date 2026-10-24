@@ -45,19 +45,19 @@ const TrafficChartPanel: React.FC<TrafficChartPanelProps> = ({ trafficData, onRe
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,245,212,0.06)" />
             <XAxis
               dataKey="time"
-              tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9, fontFamily: 'JetBrains Mono, monospace' }}
+              tick={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace' }}
               tickLine={false}
-              axisLine={{ stroke: 'rgba(0,245,212,0.1)' }}
+              axisLine={false}
               interval={5}
             />
             <YAxis
-              tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9, fontFamily: 'JetBrains Mono, monospace' }}
+              tick={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace' }}
               tickLine={false}
               axisLine={false}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend
-              wrapperStyle={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'rgba(255,255,255,0.5)' }}
+              wrapperStyle={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--ink-2)' }}
             />
             <Line
               type="monotone"

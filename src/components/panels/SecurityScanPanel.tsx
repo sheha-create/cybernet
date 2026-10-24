@@ -7,7 +7,7 @@ const SEVERITY_STYLE: Record<ScanFinding['severity'], string> = {
   HIGH: 'text-orange-400 border-[rgba(255,100,0,0.35)] bg-[rgba(255,100,0,0.08)]',
   MED: 'text-[#ffcc00] border-[rgba(255,204,0,0.3)] bg-[rgba(255,204,0,0.06)]',
   LOW: 'text-[#00f5d4] border-[rgba(0,245,212,0.25)] bg-[rgba(0,245,212,0.05)]',
-  INFO: 'text-gray-400 border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.03)]',
+  INFO: 'text-gray-400 border-[color:var(--line-2)] bg-[color:var(--line-1)]',
 };
 
 const SEVERITY_ORDER: ScanFinding['severity'][] = ['CRITICAL', 'HIGH', 'MED', 'LOW', 'INFO'];
@@ -66,23 +66,23 @@ const SecurityScanPanel: React.FC<SecurityScanPanelProps> = ({ report, loading, 
       ) : (
         <>
           <div className="grid grid-cols-4 gap-2">
-            <div className="border border-[rgba(255,255,255,0.06)] rounded p-2">
+            <div className="border border-[color:var(--line-1)] rounded p-2">
               <div className="font-mono text-[10px] text-gray-500">VERDICT</div>
               <div className={`font-mono text-xs font-bold ${worst === 'CRITICAL' || worst === 'HIGH' ? 'text-[#ff2d55]' : worst === 'MED' ? 'text-[#ffcc00]' : 'text-[#00ff88]'}`}>
                 {worst}
               </div>
             </div>
-            <div className="border border-[rgba(255,255,255,0.06)] rounded p-2">
+            <div className="border border-[color:var(--line-1)] rounded p-2">
               <div className="font-mono text-[10px] text-gray-500">PORTS OPEN</div>
               <div className="font-mono text-xs text-[#00f5d4]">{report.summary?.totalPorts ?? 0}</div>
             </div>
-            <div className="border border-[rgba(255,255,255,0.06)] rounded p-2">
+            <div className="border border-[color:var(--line-1)] rounded p-2">
               <div className="font-mono text-[10px] text-gray-500">EXPOSED</div>
               <div className={`font-mono text-xs ${(report.summary?.exposedPorts ?? 0) > 0 ? 'text-orange-400' : 'text-[#00ff88]'}`}>
                 {report.summary?.exposedPorts ?? 0}
               </div>
             </div>
-            <div className="border border-[rgba(255,255,255,0.06)] rounded p-2">
+            <div className="border border-[color:var(--line-1)] rounded p-2">
               <div className="font-mono text-[10px] text-gray-500">ATTACKS (24h)</div>
               <div className={`font-mono text-xs ${report.attacks.last24h > 0 ? 'text-[#ff2d55]' : 'text-[#00ff88]'}`}>
                 {report.attacks.last24h}
@@ -114,7 +114,7 @@ const SecurityScanPanel: React.FC<SecurityScanPanelProps> = ({ report, loading, 
             )}
           </div>
 
-          <div className="font-mono text-[10px] text-gray-600 border-t border-[rgba(255,255,255,0.08)] pt-2 leading-relaxed">
+          <div className="font-mono text-[10px] text-gray-600 border-t border-[color:var(--line-2)] pt-2 leading-relaxed">
             Findings come from the operating system's own listening-socket and firewall state reported by
             your collector agent{report.scannedAt ? ` at ${new Date(report.scannedAt).toLocaleString()}` : ''}.
             Attack counts are the requests this service actually detected against your account.

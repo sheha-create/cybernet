@@ -22,10 +22,10 @@ const TABS: Array<{ id: DashboardState['activeTab']; label: string; icon: string
 ];
 
 const STREAM_BADGE: Record<StreamState, { text: string; color: string; borderColor: string; bg: string }> = {
-  idle:         { text: 'SIGNED OUT',  color: '#6b7280', borderColor: 'rgba(255,255,255,0.1)',  bg: 'transparent' },
-  connecting:   { text: 'CONNECTING',  color: '#ffcc00', borderColor: 'rgba(255,204,0,0.3)',    bg: 'rgba(255,204,0,0.05)' },
-  live:         { text: 'LIVE',        color: '#00ff88', borderColor: 'rgba(0,255,136,0.35)',   bg: 'rgba(0,255,136,0.06)' },
-  reconnecting: { text: 'RECONNECTING',color: '#ffcc00', borderColor: 'rgba(255,204,0,0.3)',    bg: 'rgba(255,204,0,0.05)' },
+  idle:         { text: 'SIGNED OUT',  color: '#6b7280', borderColor: 'var(--line-2)',  bg: 'transparent' },
+  connecting:   { text: 'CONNECTING',  color: 'var(--sev-med)', borderColor: 'rgba(255,204,0,0.3)',    bg: 'rgba(255,204,0,0.05)' },
+  live:         { text: 'LIVE',        color: 'var(--sev-low)', borderColor: 'rgba(0,255,136,0.35)',   bg: 'rgba(0,255,136,0.06)' },
+  reconnecting: { text: 'RECONNECTING',color: 'var(--sev-med)', borderColor: 'rgba(255,204,0,0.3)',    bg: 'rgba(255,204,0,0.05)' },
 };
 
 function useClockTick() {
@@ -71,9 +71,9 @@ const NavBar: React.FC<NavBarProps> = ({
     <nav
       className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0 px-3 sm:px-4 flex-shrink-0"
       style={{
-        background: 'linear-gradient(180deg, rgba(6,18,36,0.98) 0%, rgba(8,20,38,0.95) 100%)',
-        borderBottom: '1px solid rgba(0,245,212,0.15)',
-        boxShadow: '0 2px 16px rgba(0,0,0,0.4), 0 0 40px rgba(0,245,212,0.04)',
+        background: 'var(--nav-bg, linear-gradient(180deg, rgba(6,18,36,0.98) 0%, rgba(8,20,38,0.95) 100%))',
+        borderBottom: '1px solid var(--accent-line)',
+        boxShadow: 'var(--nav-shadow, 0 2px 16px rgba(0,0,0,0.4), 0 0 40px rgba(0,245,212,0.04))',
         // min-height, not height: the tab strip wraps to a second row on narrow
         // viewports and a fixed height would clip it into the content below.
         minHeight: 48,
@@ -84,7 +84,7 @@ const NavBar: React.FC<NavBarProps> = ({
       {/* Subtle top accent line */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-        background: 'linear-gradient(90deg, transparent, rgba(0,245,212,0.5) 30%, rgba(0,245,212,0.5) 70%, transparent)',
+        background: 'linear-gradient(90deg, transparent, var(--accent-line-strong) 30%, var(--accent-line-strong) 70%, transparent)',
         pointerEvents: 'none',
       }} />
 
@@ -95,7 +95,7 @@ const NavBar: React.FC<NavBarProps> = ({
           <span
             className="font-mono font-bold text-base tracking-[0.2em]"
             style={{
-              color: '#00f5d4',
+              color: 'var(--accent)',
               textShadow: '0 0 10px rgba(0,245,212,0.9), 0 0 24px rgba(0,245,212,0.4)',
               letterSpacing: '0.25em',
             }}
@@ -104,7 +104,7 @@ const NavBar: React.FC<NavBarProps> = ({
           </span>
           <span
             className="font-mono text-[10px] tracking-widest px-1.5 py-0.5 rounded"
-            style={{ color: 'rgba(0,245,212,0.45)', border: '1px solid rgba(0,245,212,0.12)', background: 'rgba(0,245,212,0.04)' }}
+            style={{ color: 'var(--accent)', border: '1px solid var(--accent-line)', background: 'var(--accent-line)' }}
           >
             v2
           </span>
@@ -125,7 +125,7 @@ const NavBar: React.FC<NavBarProps> = ({
             <span
               style={{
                 width: 6, height: 6, borderRadius: '50%',
-                background: '#00ff88',
+                background: 'var(--sev-low)',
                 boxShadow: '0 0 6px rgba(0,255,136,0.9)',
                 display: 'inline-block',
                 animation: 'live-pulse 1.2s var(--ease-in-out-soft) infinite',
@@ -141,22 +141,22 @@ const NavBar: React.FC<NavBarProps> = ({
         {/* Real-time clock */}
         <div
           className="hidden sm:flex items-center gap-1 font-mono text-[11px]"
-          style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.05em' }}
+          style={{ color: 'var(--ink-3)', letterSpacing: '0.05em' }}
         >
-          <span style={{ color: '#00f5d4', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.08em' }}>
+          <span style={{ color: 'var(--accent)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.08em' }}>
             {hh}:{mm}:{ss}
           </span>
-          <span style={{ color: 'rgba(255,255,255,0.15)' }}>UTC</span>
+          <span style={{ color: 'var(--line-3)' }}>UTC</span>
         </div>
 
         {/* Session timer, explicitly labelled so it is not mistaken for host uptime */}
         <div
           className="hidden lg:flex items-center gap-1.5 font-mono text-[10px]"
-          style={{ color: 'rgba(255,255,255,0.25)' }}
+          style={{ color: 'var(--ink-3)' }}
           title="Time this dashboard has been open. Host uptime is shown in System Overview."
         >
           <span>SESSION</span>
-          <span style={{ color: 'rgba(0,245,212,0.55)', fontVariantNumeric: 'tabular-nums' }}>{uptime}</span>
+          <span style={{ color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{uptime}</span>
         </div>
       </div>
 
@@ -175,10 +175,10 @@ const NavBar: React.FC<NavBarProps> = ({
               onClick={() => setActiveTab(tab.id)}
               className="relative font-mono text-[11px] uppercase tracking-widest px-3 h-12 flex items-center gap-1.5 transition-all duration-150"
               style={{
-                color: isActive ? '#00f5d4' : 'rgba(255,255,255,0.35)',
+                color: isActive ? 'var(--accent)' : 'var(--ink-3)',
                 background: isActive ? 'rgba(0,245,212,0.05)' : 'transparent',
-                borderBottom: isActive ? '2px solid #00f5d4' : '2px solid transparent',
-                boxShadow: isActive ? '0 -2px 12px rgba(0,245,212,0.15) inset' : 'none',
+                borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                boxShadow: isActive ? '0 -2px 12px var(--accent-line) inset' : 'none',
               }}
             >
               <span style={{ fontSize: 10, opacity: 0.6 }}>{tab.icon}</span>
@@ -187,7 +187,7 @@ const NavBar: React.FC<NavBarProps> = ({
                 <span
                   className="absolute -top-0 right-0.5 flex items-center justify-center text-white font-bold"
                   style={{
-                    background: '#ff2d55',
+                    background: 'var(--sev-critical)',
                     fontSize: 8,
                     minWidth: 14,
                     height: 14,
@@ -211,8 +211,8 @@ const NavBar: React.FC<NavBarProps> = ({
           <div
             className="flex items-center gap-2 font-mono text-[10px] px-2 py-1 rounded"
             style={{
-              color: 'rgba(255,255,255,0.6)',
-              border: '1px solid rgba(0,245,212,0.15)',
+              color: 'var(--ink-2)',
+              border: '1px solid var(--accent-line)',
               background: 'rgba(0,245,212,0.04)',
             }}
           >
@@ -221,16 +221,16 @@ const NavBar: React.FC<NavBarProps> = ({
               className="flex items-center justify-center text-[11px] font-bold flex-shrink-0"
               style={{
                 width: 20, height: 20, borderRadius: '50%',
-                background: 'linear-gradient(135deg, rgba(0,245,212,0.3), rgba(0,245,212,0.1))',
+                background: 'linear-gradient(135deg, rgba(0,245,212,0.3), var(--accent-line))',
                 border: '1px solid rgba(0,245,212,0.4)',
-                color: '#00f5d4',
+                color: 'var(--accent)',
               }}
             >
               {(user.email || user.displayName || 'U')[0].toUpperCase()}
             </div>
             <span
               className="max-w-[100px] truncate hidden md:inline"
-              style={{ color: 'rgba(255,255,255,0.7)' }}
+              style={{ color: 'var(--ink-2)' }}
             >
               {user.email || user.displayName || 'User'}
             </span>
@@ -249,8 +249,8 @@ const NavBar: React.FC<NavBarProps> = ({
           onClick={onSearchOpen}
           className="font-mono text-[10px] flex items-center gap-1 transition-colors px-2 py-1 rounded"
           style={{
-            color: 'rgba(255,255,255,0.35)',
-            border: '1px solid rgba(0,245,212,0.15)',
+            color: 'var(--ink-3)',
+            border: '1px solid var(--accent-line)',
             background: 'transparent',
           }}
           title="Global Search (Cmd+K)"
@@ -263,8 +263,8 @@ const NavBar: React.FC<NavBarProps> = ({
           onClick={() => setDarkMode(!darkMode)}
           className="font-mono text-[11px] transition-colors px-2 py-1 rounded"
           style={{
-            color: 'rgba(255,255,255,0.35)',
-            border: '1px solid rgba(0,245,212,0.15)',
+            color: 'var(--ink-3)',
+            border: '1px solid var(--accent-line)',
             background: 'transparent',
           }}
           title="Toggle light/dark mode"

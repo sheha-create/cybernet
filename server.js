@@ -6,7 +6,7 @@ import path from 'path';
 import crypto from 'crypto';
 import zlib from 'zlib';
 import { fileURLToPath } from 'url';
-import { execFile, execFileSync } from 'child_process';
+import { execFile, execFileSync, spawn } from 'child_process';
 import dotenv from 'dotenv';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
@@ -708,6 +708,223 @@ function sanitizeFirewall(value) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Local collector-agent management.
+//
+// The agent normally requires two manual steps: paste the token into
+// agent/.env, then run `node agent/collector.mjs` by hand. On a locally
+// operated deployment the server can do both on the operator's behalf: it
+// issues the token through the dashboard, stores the plaintext token in
+// agent/.env (the filesystem is the only durable home for it — the database
+// knowingly keeps only a salted hash), and spawns the collector as a child
+// process. The child is also respawned at boot while a token file exists, so
+// `npm run dev` keeps the pipeline running with no operator actions.
+// ---------------------------------------------------------------------------
+
+const AGENT_DIR = process.env.AGENT_DIR || path.join(__dirname, 'agent');
+const AGENT_ENV_FILE = path.join(AGENT_DIR, '.env');
+// Explicit opt-out for managed/cloud setups where spawning a local collector
+// is wrong (e.g. the real host is some other machine).
+const AGENT_AUTOSTART = process.env.CYBERNET_AGENT_AUTOSTART !== 'false';
+
+let agentChild = null;
+let agentRestarts = 0;
+const AGENT_TOKEN_KEY = 'CYBERNET_AGENT_TOKEN';
+const AGENT_SERVER_URL_KEY = 'CYBERNET_SERVER_URL';
+
+function readAgentEnv() {
+  const map = new Map();
+  try {
+    for (const line of fs.readFileSync(AGENT_ENV_FILE, 'utf8').split(/\r?\n/)) {
+      const commentFree = line.trim();
+      if (!commentFree || commentFree.startsWith('#')) continue;
+      const eq = commentFree.indexOf('=');
+      if (eq <= 0) continue;
+      map.set(commentFree.slice(0, eq).trim(), commentFree.slice(eq + 1).trim());
+    }
+  } catch { /* No agent/.env yet — callers handle absence. */ }
+  return map;
+}
+
+function updateAgentEnvValue(key, value) {
+  fs.mkdirSync(AGENT_DIR, { recursive: true });
+  const existing = fs.existsSync(AGENT_ENV_FILE)
+    ? fs.readFileSync(AGENT_ENV_FILE, 'utf8')
+    : `CYBERNET_SERVER_URL=http://127.0.0.1:${PORT}\nCYBERNET_INTERVAL_MS=5000\n`;
+  const pattern = new RegExp(`^${key}=.*$`, 'm');
+  const next = pattern.test(existing)
+    ? existing.replace(pattern, `${key}=${value}`)
+    : `${existing.trimEnd()}\n${key}=${value}\n`;
+  fs.writeFileSync(AGENT_ENV_FILE, next, 'utf8');
+}
+
+function isCollectorAlive() {
+  return Boolean(agentChild && agentChild.exitCode === null && !agentChild.killed);
+}
+
+function spawnLocalCollector(reason) {
+  if (!AGENT_AUTOSTART) return false;
+  if (isCollectorAlive()) return true;
+  if (!fs.existsSync(path.join(AGENT_DIR, 'collector.mjs'))) {
+    log('warn', 'agent_autostart_missing', { dir: AGENT_DIR });
+    return false;
+  }
+  const env = readAgentEnv();
+  if (!env.get(AGENT_TOKEN_KEY)) return false;
+
+  const childEnv = { ...process.env };
+  childEnv[AGENT_TOKEN_KEY] = env.get(AGENT_TOKEN_KEY);
+  childEnv[AGENT_SERVER_URL_KEY] = env.get(AGENT_SERVER_URL_KEY) || `http://127.0.0.1:${PORT}`;
+  if (env.get('CYBERNET_INTERVAL_MS')) childEnv.CYBERNET_INTERVAL_MS = env.get('CYBERNET_INTERVAL_MS');
+  childEnv.NODE_ENV = childEnv.NODE_ENV || 'development';
+
+  const child = spawn(process.execPath, ['collector.mjs'], {
+    cwd: AGENT_DIR,
+    env: childEnv,
+    stdio: 'pipe',
+    shell: false,
+  });
+  agentChild = child;
+  log('info', 'agent_collector_started', { pid: child.pid, try: agentRestarts, reason });
+  // A collector that stays up proves the token works; the crash-restart
+  // budget only tracks recovery attempts, so stability re-arms it.
+  const stabilizer = setTimeout(() => { if (agentChild === child) agentRestarts = 0; }, 60_000);
+  stabilizer.unref();
+
+  child.stdout.on('data', data => process.stdout.write(`[agent] ${String(data)}`));
+  child.stderr.on('data', data => process.stderr.write(`[agent] ${String(data)}`));
+
+  child.on('exit', (code, signal) => {
+    log(code === 0 ? 'info' : 'warn', 'agent_collector_exited', { code, signal, reason });
+    void handleCollectorExit(code, signal);
+  });
+  return true;
+}
+
+// The collector exits when the server rejects its credential ("Agent token
+// rejected"). Revoked or stale tokens must not crash-loop: if the stored token
+// no longer resolves to a live agent row, drop it from agent/.env and stop.
+// Otherwise the exit counts as transient (server hiccup) and is retried with
+// a bounded budget that re-arms after a period of stability.
+async function handleCollectorExit(code, signal) {
+  if (shuttingDown) return;
+  const token = readAgentEnv().get(AGENT_TOKEN_KEY);
+  if (token) {
+    try {
+      const live = await db.get(
+        'SELECT id FROM agents WHERE token_hash = ? AND revoked_at IS NULL',
+        hashToken(token),
+      );
+      if (!live) {
+        updateAgentEnvValue(AGENT_TOKEN_KEY, '');
+        log('info', 'agent_disabled_dead_token', { exitCode: code, signal });
+        return;
+      }
+    } catch (error) {
+      log('warn', 'agent_token_check_failed', { message: error.message });
+    }
+  }
+  scheduleCollectorRespawn(code);
+}
+
+// Respawn with backoff, guarded by a small budget that re-arms once the
+// collector proves stability (see spawnLocalCollector's stabilizer timer).
+function scheduleCollectorRespawn(code) {
+  if (agentRestarts >= 4) {
+    log('warn', 'agent_restart_budget_exhausted', { attempts: agentRestarts });
+    return;
+  }
+  agentRestarts += 1;
+  const delay = 5_000;
+  const timer = setTimeout(() => {
+    backgroundIntervals.delete(timer);
+    spawnLocalCollector(`restart-after-exit-${code}`);
+  }, delay);
+  backgroundIntervals.add(timer);
+}
+
+/** Issue a token row for `userId` and return { id, label, token, createdAt }. */
+async function issueAgentToken(userId, label) {
+  const id = crypto.randomUUID();
+  const token = generateToken();
+  const createdAt = new Date().toISOString();
+  try {
+    await db.run(
+      'INSERT INTO agents (id, user_id, token_hash, label, created_at) VALUES (?, ?, ?, ?, ?)',
+      id, userId, hashToken(token), label, createdAt,
+    );
+  } catch (error) {
+    log('error', 'agent_token_issue_failed', { message: error.message });
+    return null;
+  }
+  return { id, label, token, createdAt };
+}
+
+async function stopLocalCollector() {
+  if (!agentChild || agentChild.exitCode !== null) return;
+  const child = agentChild;
+  const killTimer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } }, 3_000);
+  killTimer.unref();
+  child.removeAllListeners('exit');
+  child.once('exit', () => log('info', 'agent_collector_stopped', { pid: child.pid }));
+  try { child.kill('SIGTERM'); } catch { /* already gone */ }
+  agentChild = null;
+}
+
+app.get('/api/agent/status', requireAuth, async (req, res) => {
+  const latest = await db.get(
+    'SELECT MAX(last_seen_at) AS lastSeenAt, COUNT(*) AS tokens FROM agents WHERE user_id = ? AND revoked_at IS NULL',
+    req.user.uid,
+  );
+  const lastSeenAt = latest?.lastSeenAt ?? null;
+  res.json({
+    collector: isCollectorAlive(),
+    agentEnabled: AGENT_AUTOSTART,
+    lastSeenAt,
+    fresh: Boolean(lastSeenAt) && Date.now() - Date.parse(lastSeenAt) < 30_000,
+    activeTokens: latest?.tokens ?? 0,
+  });
+});
+
+// One-stop onboarding: issue a token for this account, store it in the local
+// agent/.env, and start the collector immediately. The previous token found in
+// agent/.env is revoked first, because its plaintext is being replaced and a
+// stale-but-valid token would be a pointless live credential.
+app.post('/api/agent/start', requireAuth, async (req, res) => {
+  const label = sanitizeString(req.body?.label, 60) ?? 'My PC';
+  const previousEnv = readAgentEnv();
+  const previousToken = previousEnv.get(AGENT_TOKEN_KEY);
+
+  // Revoke any token that is currently sitting in agent/.env.
+  if (previousToken) {
+    try {
+      await db.run(
+        'UPDATE agents SET revoked_at = ? WHERE user_id = ? AND token_hash = ? AND revoked_at IS NULL',
+        new Date().toISOString(), req.user.uid, hashToken(previousToken),
+      );
+    } catch (error) {
+      log('error', 'agent_prior_revoke_failed', { message: error.message });
+    }
+  }
+  // The fallback copy/paste path (used when the server cannot spawn the
+  // collector, e.g. another machine) stays manual: the response carries the
+  // plaintext token so the client can show it exactly once.
+  const issued = await issueAgentToken(req.user.uid, label);
+  if (!issued) return res.status(500).json({ error: 'Could not issue agent token' });
+  updateAgentEnvValue('CYBERNET_AGENT_TOKEN', issued.token);
+  updateAgentEnvValue('CYBERNET_SERVER_URL', `http://127.0.0.1:${PORT}`);
+  await stopLocalCollector();
+  const started = spawnLocalCollector('dashboard-start');
+  res.status(201).json({
+    agentId: issued.id,
+    started,
+    // Presented only when no local collector could be launched.
+    token: started ? null : issued.token,
+    agentEnvFile: AGENT_ENV_FILE,
+    createdAt: issued.createdAt,
+  });
+});
+
 app.get('/api/agent/list', requireAuth, async (req, res) => {
   const agents = await db.all(
     'SELECT id, label, created_at AS createdAt, last_seen_at AS lastSeenAt, revoked_at AS revokedAt FROM agents WHERE user_id = ? ORDER BY created_at DESC',
@@ -718,31 +935,30 @@ app.get('/api/agent/list', requireAuth, async (req, res) => {
 
 app.post('/api/agent/token', requireAuth, async (req, res) => {
   const label = sanitizeString(req.body?.label, 60) ?? 'Collector';
-  const id = crypto.randomUUID();
-  const token = generateToken();
-
-  try {
-    await db.run(
-      'INSERT INTO agents (id, user_id, token_hash, label, created_at) VALUES (?, ?, ?, ?, ?)',
-      id, req.user.uid, hashToken(token), label, new Date().toISOString(),
-    );
-  } catch (error) {
-    log('error', 'agent_token_issue_failed', { message: error.message });
-    return res.status(500).json({ error: 'Could not issue agent token' });
-  }
-
-  res.status(201).json({ id, label, token, createdAt: new Date().toISOString() });
+  const issued = await issueAgentToken(req.user.uid, label);
+  if (!issued) return res.status(500).json({ error: 'Could not issue agent token' });
+  res.status(201).json(issued);
 });
 
 app.post('/api/agent/revoke', requireAuth, async (req, res) => {
   const id = sanitizeString(req.body?.id, 64);
   if (!id) return res.status(400).json({ error: 'Agent id is required' });
 
+  const row = await db.get('SELECT token_hash FROM agents WHERE id = ? AND user_id = ?', id, req.user.uid);
   const result = await db.run(
     'UPDATE agents SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL',
     new Date().toISOString(), id, req.user.uid,
   );
   if (!result.changes) return res.status(404).json({ error: 'Agent not found' });
+
+  // If the revoked token is the one the local collector is running with, cut
+  // its power: a dead credential left running would keep rejecting forever.
+  const storedToken = readAgentEnv().get(AGENT_TOKEN_KEY);
+  if (storedToken && row?.token_hash === hashToken(storedToken)) {
+    updateAgentEnvValue(AGENT_TOKEN_KEY, '');
+    await stopLocalCollector();
+    log('info', 'agent_local_collector_disabled', { reason: 'token_revoked' });
+  }
   res.json({ revoked: id });
 });
 
@@ -1509,11 +1725,24 @@ backgroundIntervals.add(cacheSweepTimer);
 // Node resolves `localhost` to ::1 first on many systems. Omitting the host makes
 // Node listen on `::` with dual-stack enabled, so both 127.0.0.1 and ::1 work.
 const HOST = process.env.HOST || undefined;
-server.listen(PORT, HOST, () => log('info', 'server_started', {
-  port: PORT,
-  address: HOST ?? 'dual-stack (::)',
-  monitoring: 'local_service_requests_and_host_metrics',
-}));
+server.listen(PORT, HOST, () => {
+  log('info', 'server_started', {
+    port: PORT,
+    address: HOST ?? 'dual-stack (::)',
+    monitoring: 'local_service_requests_and_host_metrics',
+  });
+  // Continue any agent pipeline configured by an earlier "Start" click. If no
+  // token is stored yet, nothing starts — enabling the collector is always a
+  // deliberate, authenticated action in the dashboard.
+  if (spawnLocalCollector('boot')) {
+    // Confirm quickly that the stored credential is still accepted.
+    setTimeout(() => {
+      if (!isCollectorAlive() && !shuttingDown) {
+        log('warn', 'agent_autostart_failed', { hint: 'Token may be revoked. Start it again from the dashboard.' });
+      }
+    }, 20_000);
+  }
+});
 
 let shuttingDown = false;
 
@@ -1527,6 +1756,10 @@ function shutdown(signal) {
 
   clearInterval(retentionTimer);
   for (const interval of backgroundIntervals) clearInterval(interval);
+
+  if (agentChild && agentChild.exitCode === null) {
+    try { agentChild.kill('SIGTERM'); } catch { /* already gone */ }
+  }
 
   for (const client of sseClients) {
     for (const timer of client.timers ?? []) clearInterval(timer);

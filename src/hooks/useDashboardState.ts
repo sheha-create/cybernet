@@ -1,7 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Alert, BlocklistEntry, Device, Toast, TrafficPoint, ThreatLevel } from '../types';
 import { computeThreatLevel, deserializeBlocklistEntry, serializeBlocklistEntry } from '../utils/logic';
 import { useAgentMetrics, useBackendAlerts, useBackendHeatmap, useBackendStats, useBackendVisits, useHostInfo, useNetworkInfo, useSecurityScan, useSystemMetrics, useUserIp } from './useBackendData';
+
+const THEME_KEY = 'cybernet_theme';
+const PINS_KEY = 'cybernet_pinned_panels';
+
+function loadTheme(): boolean {
+  // Deliberately matches the pre-paint script in index.html so the initial
+  // React state agrees with whatever class was already applied.
+  try { return localStorage.getItem(THEME_KEY) !== 'light'; } catch { return true; }
+}
+
+function persistTheme(dark: boolean) {
+  try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch { /* storage unavailable */ }
+}
+
+function loadPins(): string[] {
+  try {
+    const raw = localStorage.getItem(PINS_KEY);
+    return raw ? (JSON.parse(raw) as string[]).filter(id => typeof id === 'string') : [];
+  } catch { return []; }
+}
+
+function persistPins(ids: string[]) {
+  try { localStorage.setItem(PINS_KEY, JSON.stringify(ids)); } catch { /* storage unavailable */ }
+}
 
 function loadBlocklist(): BlocklistEntry[] {
   try {
@@ -31,12 +55,21 @@ export function useDashboardState() {
   const [liveAlerts, setLiveAlerts] = useState<Alert[]>([]);
   const [blocklist, setBlocklistState] = useState<BlocklistEntry[]>(loadBlocklist);
   const [donutFilter, setDonutFilter] = useState<'all' | 'active' | 'loopback'>('all');
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkModeState] = useState<boolean>(loadTheme);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [criticalFlash, setCriticalFlash] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'devices' | 'alerts' | 'scans' | 'config'>('dashboard');
-  const [pinnedPanels, setPinnedPanels] = useState<string[]>([]);
+  const [pinnedPanels, setPinnedPanels] = useState<string[]>(loadPins);
   const [trafficData, setTrafficData] = useState<TrafficPoint[]>([]);
+  const [focusedDeviceIp, setFocusedDeviceIp] = useState<string | null>(null);
+
+  const setDarkMode = useCallback((value: boolean | ((previous: boolean) => boolean)) => {
+    setDarkModeState(previous => {
+      const next = typeof value === 'function' ? value(previous) : value;
+      persistTheme(next);
+      return next;
+    });
+  }, []);
 
   const onLiveAlert = useCallback((event: Parameters<typeof toAlert>[0]) => {
     const alert = toAlert({ ...event, live: true });
@@ -48,14 +81,14 @@ export function useDashboardState() {
   }, []);
 
   const { metrics, hasBackend, streamState, lastFrameAt } = useSystemMetrics(onLiveAlert);
-  const { networkInfo, devices: observedInterfaces } = useNetworkInfo();
-  const hostInfo = useHostInfo();
-  const storedAlerts = useBackendAlerts();
-  const visitStats = useBackendStats();
-  const visitRecords = useBackendVisits();
-  const heatmapData = useBackendHeatmap();
-  const userIp = useUserIp();
-  const agentSamples = useAgentMetrics();
+  const { networkInfo, devices: observedInterfaces, refresh: refreshNetwork } = useNetworkInfo();
+  const { hostInfo } = useHostInfo();
+  const { alerts: storedAlerts, refresh: refreshAlerts } = useBackendAlerts();
+  const { stats: visitStats, refresh: refreshStats } = useBackendStats();
+  const { visits: visitRecords } = useBackendVisits();
+  const { heatmap: heatmapData, refresh: refreshHeatmap } = useBackendHeatmap();
+  const { ip: userIp, refresh: refreshUserIp } = useUserIp();
+  const { agents: agentSamples, refresh: refreshAgents } = useAgentMetrics();
   const scan = useSecurityScan();
 
   const primaryAgent = useMemo(
@@ -176,8 +209,45 @@ export function useDashboardState() {
     const removeFromBlocklist = useCallback((ids: string[]) => setBlocklist(previous => previous.filter(entry => !ids.includes(entry.id))), [setBlocklist]);
   const removeToast = useCallback((id: string) => setToasts(previous => previous.filter(toast => toast.id !== id)), []);
   const markAlertsRead = useCallback(() => setLiveAlerts(previous => previous.map(alert => ({ ...alert, read: true }))), []);
-  const pinPanel = useCallback((panelId: string) => setPinnedPanels(previous => previous.includes(panelId) ? previous.filter(id => id !== panelId) : [panelId, ...previous]), []);
-  const refreshPanel = useCallback((_panelId: string) => undefined, []);
+
+  const pinPanel = useCallback((panelId: string) => setPinnedPanels(previous => {
+    const next = previous.includes(panelId)
+      ? previous.filter(id => id !== panelId)
+      : [panelId, ...previous];
+    persistPins(next);
+    return next;
+  }), []);
+
+  // Manual refresh endpoints, keyed by panel id. Panels fed directly by the
+  // SSE stream (traffic chart, core map) don't need one — their data changes
+  // continuously anyway.
+  const refresherRef = useRef<Record<string, (() => void) | undefined>>({});
+  refresherRef.current = {
+    overview: refreshStats,
+    donut: refreshNetwork,
+    devicelist: refreshNetwork,
+    heatmap: refreshHeatmap,
+    threatfeed: refreshAlerts,
+    terminal: refreshAlerts,
+    agent: refreshAgents,
+    userip: refreshUserIp,
+    scan: scan.refresh,
+  };
+
+  const refreshPanel = useCallback((panelId: string) => {
+    const refresh = refresherRef.current[panelId];
+    if (!refresh) return false;
+    refresh();
+    return true;
+  }, []);
+
+  const focusDevice = useCallback((ip: string) => setFocusedDeviceIp(ip), []);
+  const clearFocusedDevice = useCallback(() => setFocusedDeviceIp(null), []);
+
+  const panelPins = useMemo(() => ({
+    isPinned: (panelId: string) => pinnedPanels.includes(panelId),
+    pinPanel,
+  }), [pinnedPanels, pinPanel]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -194,6 +264,8 @@ export function useDashboardState() {
     backendOnline: hasBackend, streamState, lastFrameAt,
     addToBlocklist, removeFromBlocklist, setDonutFilter, setDarkMode, addToast,
     removeToast, markAlertsRead, setActiveTab, pinPanel, refreshPanel,
+    focusedDeviceIp, focusDevice, clearFocusedDevice,
+    panelPins,
   };
 }
 

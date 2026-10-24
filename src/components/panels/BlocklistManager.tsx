@@ -173,7 +173,7 @@ const BlocklistManager: React.FC<BlocklistManagerProps> = ({
                   <td className="py-1.5">
                     <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                       expired
-                        ? 'text-gray-600 border-[rgba(255,255,255,0.1)]'
+                        ? 'text-gray-600 border-[color:var(--line-2)]'
                         : 'text-[#00ff88] border-[rgba(0,255,136,0.3)] bg-[rgba(0,255,136,0.05)]'
                     }`}>
                       {expired ? 'EXPIRED' : 'ACTIVE'}
@@ -279,7 +279,7 @@ const BlocklistManager: React.FC<BlocklistManagerProps> = ({
                   className={`font-mono text-[10px] px-3 py-1 rounded border transition-colors ${
                     ruleTab === tab
                       ? 'border-[rgba(0,245,212,0.5)] text-[#00f5d4] bg-[rgba(0,245,212,0.08)]'
-                      : 'border-[rgba(255,255,255,0.1)] text-gray-500 hover:text-gray-300'
+                      : 'border-[color:var(--line-2)] text-gray-500 hover:text-gray-300'
                   }`}
                 >
                   {tab}

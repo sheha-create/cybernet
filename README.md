@@ -6,7 +6,7 @@ CYBERNET is a deployable, no-key security monitor for a single Node.js service. 
 - path traversal and injection signatures in incoming request paths
 - live CPU, memory, storage, and network byte-rate measurements from the host
 
-It does not use demo events, IP reputation services, geolocation services, or third-party API keys. An empty alert feed means this instance has not recorded a detection.
+It does not use demo events, IP reputation services, or third-party API keys that require registration. Two free, key-less enrichment sources are used on demand only: `ip-api.com` geolocates detected source IPs for the threat map, and the Shodan InternetDB enriches the IP-intelligence panel with passively observed ports and CVEs. An empty alert feed means this instance has not recorded a detection.
 
 ## Run locally
 

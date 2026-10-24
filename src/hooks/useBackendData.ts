@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { AgentRecord, AgentSample, Device, HeatmapCell, HostInfo, ScanReport } from '../types';
+import type { AgentRecord, AgentSample, AgentStartResult, AgentStatus, Device, HeatmapCell, HostInfo, ScanReport } from '../types';
 import { useAuthContext } from '../auth/AuthProvider';
 import { apiUrl } from '../utils/api';
 
@@ -159,116 +159,169 @@ export function useSystemMetrics(onAlert?: (alert: BackendAlert) => void) {
 
 function usePolling<T>(url: string, initialValue: T, intervalMs: number, getIdToken: () => Promise<string | null>) {
   const { user } = useAuthContext();
-  const [value, setValue] = useState<T>(initialValue);
+  const [data, setData] = useState<T>(initialValue);
+
+  // State lives in a ref so the exposed `refresh` callback stays referentially
+  // stable — consumers can put it in effect deps or wire it to a button without
+  // re-subscribing the poller.
+  const stateRef = useRef({ active: false, inFlight: false });
+  const refreshRef = useRef<() => Promise<void>>(async () => { /* not mounted yet */ });
+
   useEffect(() => {
     if (!user) return;
-    let active = true;
-    let inFlight = false;
+    stateRef.current.active = true;
     const refresh = async () => {
       // Skip a tick rather than queueing a second request behind a slow one.
-      if (inFlight) return;
-      inFlight = true;
+      if (stateRef.current.inFlight) return;
+      stateRef.current.inFlight = true;
       try {
         const response = await authedFetch(url, getIdToken);
-        if (response.ok && active) setValue(await response.json() as T);
+        if (response.ok && stateRef.current.active) setData(await response.json() as T);
       } catch { /* Preserve the last successful observation. */ }
-      finally { inFlight = false; }
+      finally { stateRef.current.inFlight = false; }
     };
+    refreshRef.current = refresh;
     refresh();
     const interval = window.setInterval(refresh, intervalMs);
-    return () => { active = false; window.clearInterval(interval); };
+    return () => {
+      stateRef.current.active = false;
+      window.clearInterval(interval);
+      refreshRef.current = async () => { /* unmounted */ };
+    };
   }, [user, url, intervalMs, getIdToken]);
-  return value;
+
+  const refresh = useCallback(() => refreshRef.current(), []);
+  return { data, refresh };
 }
 
 export function useNetworkInfo() {
   const { getIdToken } = useAuthContext();
-  const networkInfo = usePolling<{ hostname: string; interfaces: Device[] }>(
+  const { data: networkInfo, refresh } = usePolling<{ hostname: string; interfaces: Device[] }>(
     '/api/network/info',
     { hostname: 'Detecting...', interfaces: [] },
     10_000,
     getIdToken,
   );
-  return { networkInfo, devices: networkInfo.interfaces };
+  return { networkInfo, devices: networkInfo.interfaces, refresh };
 }
 
 export function useHostInfo() {
   const { getIdToken } = useAuthContext();
-  return usePolling<HostInfo | null>('/api/host', null, 30_000, getIdToken);
+  const { data, refresh } = usePolling<HostInfo | null>('/api/host', null, 30_000, getIdToken);
+  return { hostInfo: data, refresh };
 }
 
 export function useBackendStats() {
   const { getIdToken } = useAuthContext();
-  return usePolling<BackendStats>('/api/stats', { totalVisits: 0, uniqueIps: 0, flaggedCount: 0, topSources: [] }, 10_000, getIdToken);
+  const { data, refresh } = usePolling<BackendStats>(
+    '/api/stats',
+    { totalVisits: 0, uniqueIps: 0, flaggedCount: 0, topSources: [] },
+    10_000,
+    getIdToken,
+  );
+  return { stats: data, refresh };
 }
 
 export function useBackendAlerts() {
   const { getIdToken } = useAuthContext();
-  return usePolling<BackendAlert[]>('/api/alerts', [], 10_000, getIdToken);
+  const { data, refresh } = usePolling<BackendAlert[]>('/api/alerts', [], 10_000, getIdToken);
+  return { alerts: data, refresh };
 }
 
 export function useBackendVisits() {
   const { getIdToken } = useAuthContext();
-  return usePolling<VisitRecord[]>('/api/visits', [], 10_000, getIdToken);
+  const { data, refresh } = usePolling<VisitRecord[]>('/api/visits', [], 10_000, getIdToken);
+  return { visits: data, refresh };
 }
 
 export function useBackendHeatmap() {
   const { getIdToken } = useAuthContext();
-  return usePolling<HeatmapCell[][]>('/api/heatmap', Array.from({ length: 7 }, (_, day) => Array.from({ length: 24 }, (_, hour) => ({ day, hour, count: 0, topAttackType: 'No detected events' }))), 30_000, getIdToken);
+  const { data, refresh } = usePolling<HeatmapCell[][]>(
+    '/api/heatmap',
+    Array.from({ length: 7 }, (_, day) => Array.from({ length: 24 }, (_, hour) => ({ day, hour, count: 0, topAttackType: 'No detected events' }))),
+    30_000,
+    getIdToken,
+  );
+  return { heatmap: data, refresh };
 }
 
 export function useUserIp() {
-  const { getIdToken } = useAuthContext();
+  const { user, getIdToken } = useAuthContext();
   const [ip, setIp] = useState<string>('Detecting...');
+  const stateRef = useRef({ active: false });
+  const refreshRef = useRef<() => Promise<void>>(async () => { /* not mounted yet */ });
+
   useEffect(() => {
-    let active = true;
+    if (!user) {
+      setIp('Detecting...');
+      return;
+    }
+    stateRef.current.active = true;
     const fetchIp = async () => {
       try {
         const response = await authedFetch('/api/user/ip', getIdToken);
-        if (response.ok && active) {
+        if (response.ok && stateRef.current.active) {
           const data = await response.json();
           setIp(data.ip);
+        } else if (stateRef.current.active) {
+          setIp('Unavailable');
         }
       } catch {
-        if (active) setIp('Unavailable');
+        if (stateRef.current.active) setIp('Unavailable');
       }
     };
+    refreshRef.current = fetchIp;
     fetchIp();
     const interval = window.setInterval(fetchIp, 60_000);
-    return () => { active = false; window.clearInterval(interval); };
-  }, [getIdToken]);
-  return ip;
+    return () => {
+      stateRef.current.active = false;
+      window.clearInterval(interval);
+      refreshRef.current = async () => { /* unmounted */ };
+    };
+  }, [user, getIdToken]);
+
+  const refresh = useCallback(() => refreshRef.current(), []);
+  return { ip, refresh };
 }
 
 export function useAgentMetrics(intervalMs = 5_000) {
   const { user, getIdToken } = useAuthContext();
   const [agents, setAgents] = useState<AgentSample[]>([]);
+  const stateRef = useRef({ active: false });
+  const refreshRef = useRef<() => Promise<void>>(async () => { /* not mounted yet */ });
 
   useEffect(() => {
     if (!user) {
       setAgents([]);
       return;
     }
-    let active = true;
+    stateRef.current.active = true;
     const refresh = async () => {
       try {
         const response = await authedFetch('/api/agent/metrics', getIdToken);
-        if (!response.ok || !active) return;
+        if (!response.ok || !stateRef.current.active) return;
         const data = await response.json() as { agents: AgentSample[] };
-        if (active) setAgents(data.agents ?? []);
+        if (stateRef.current.active) setAgents(data.agents ?? []);
       } catch { /* Keep the last successful observation. */ }
     };
+    refreshRef.current = refresh;
     refresh();
     const interval = window.setInterval(refresh, intervalMs);
-    return () => { active = false; window.clearInterval(interval); };
+    return () => {
+      stateRef.current.active = false;
+      window.clearInterval(interval);
+      refreshRef.current = async () => { /* unmounted */ };
+    };
   }, [user, getIdToken, intervalMs]);
 
-  return agents;
+  const refresh = useCallback(() => refreshRef.current(), []);
+  return { agents, refresh };
 }
 
 export function useAgentRegistry() {
   const { user, getIdToken } = useAuthContext();
   const [agents, setAgents] = useState<AgentRecord[]>([]);
+  const [status, setStatus] = useState<AgentStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -281,7 +334,22 @@ export function useAgentRegistry() {
     } catch { /* Ignore transient listing failures. */ }
   }, [user, getIdToken]);
 
+  const refreshStatus = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await authedFetch('/api/agent/status', getIdToken);
+      if (!response.ok) return;
+      setStatus(await response.json() as AgentStatus);
+    } catch { /* Ignore transient status failures. */ }
+  }, [user, getIdToken]);
+
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!user) return;
+    refreshStatus();
+    const timer = window.setInterval(refreshStatus, 5_000);
+    return () => window.clearInterval(timer);
+  }, [user, refreshStatus]);
 
   const issueToken = useCallback(async (label: string) => {
     setBusy(true);
@@ -304,6 +372,30 @@ export function useAgentRegistry() {
     }
   }, [getIdToken, refresh]);
 
+  // One-click onboarding: the server issues the token, stores it in the local
+  // agent/.env, and starts the collector process itself. The token is only
+  // revealed when the server reports it could not spawn a local collector.
+  const startAgent = useCallback(async (label: string) => {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await authedFetch('/api/agent/start', getIdToken, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label }),
+      });
+      if (!response.ok) throw new Error('Could not start the collector agent');
+      const result = await response.json() as AgentStartResult;
+      await Promise.all([refresh(), refreshStatus()]);
+      return result;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start the collector agent');
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [getIdToken, refresh, refreshStatus]);
+
   const revoke = useCallback(async (id: string) => {
     setBusy(true);
     setError('');
@@ -315,14 +407,15 @@ export function useAgentRegistry() {
       });
       if (!response.ok) throw new Error('Could not revoke the token');
       await refresh();
+      await refreshStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not revoke the token');
     } finally {
       setBusy(false);
     }
-  }, [getIdToken, refresh]);
+  }, [getIdToken, refresh, refreshStatus]);
 
-  return { agents, issueToken, revoke, busy, error, refresh };
+  return { agents, status, issueToken, startAgent, revoke, busy, error, refresh };
 }
 
 const EMPTY_SCAN: ScanReport = {

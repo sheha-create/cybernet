@@ -10,10 +10,10 @@ interface TerminalPanelProps {
 }
 
 const SEVERITY_COLOR: Record<Alert['severity'], string> = {
-  LOW: '#00f5d4',
-  MED: '#ffcc00',
-  HIGH: '#ff8c00',
-  CRITICAL: '#ff2d55',
+  LOW: 'var(--accent)',
+  MED: 'var(--sev-med)',
+  HIGH: 'var(--sev-high)',
+  CRITICAL: 'var(--sev-critical)',
 };
 
 const TerminalPanel: React.FC<TerminalPanelProps> = ({ alerts, streamState, onRefresh, onPin }) => {
@@ -58,8 +58,8 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ alerts, streamState, onRe
           <span
             className="text-[10px] px-1.5 py-0.5 rounded border font-mono"
             style={{
-              color: live ? '#00ff88' : '#6b7280',
-              borderColor: live ? 'rgba(0,255,136,0.35)' : 'rgba(255,255,255,0.1)',
+              color: live ? 'var(--sev-low)' : '#6b7280',
+              borderColor: live ? 'rgba(0,255,136,0.35)' : 'var(--line-2)',
             }}
             title={live ? 'Streaming detections now' : 'Not connected to the event stream'}
           >
@@ -76,7 +76,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ alerts, streamState, onRe
             onClick={() => setFollow(v => !v)}
             className={`font-mono text-[10px] px-2 py-0.5 rounded border ${follow
               ? 'border-[rgba(0,245,212,0.4)] text-[#00f5d4]'
-              : 'border-[rgba(255,255,255,0.12)] text-gray-500'}`}
+              : 'border-[color:var(--line-2)] text-gray-500'}`}
             title="Jump to newest event"
           >
             {follow ? 'FOLLOWING' : 'FOLLOW OFF'}
@@ -135,7 +135,7 @@ const TerminalPanel: React.FC<TerminalPanelProps> = ({ alerts, streamState, onRe
         )}
       </div>
 
-      <div className="font-mono text-[10px] text-gray-700 border-t border-[rgba(255,255,255,0.06)] pt-1.5">
+      <div className="font-mono text-[10px] text-gray-700 border-t border-[color:var(--line-1)] pt-1.5">
         {lines.length} event{lines.length === 1 ? '' : 's'} retained · newest first
       </div>
     </div>

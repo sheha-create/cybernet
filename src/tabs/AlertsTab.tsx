@@ -7,7 +7,7 @@ interface AlertsTabProps {
 }
 
 const AlertsTab: React.FC<AlertsTabProps> = ({ state }) => {
-  const { alerts, unreadAlertCount, addToBlocklist, addToast, markAlertsRead, pinPanel } = state;
+  const { alerts, unreadAlertCount, addToBlocklist, addToast, markAlertsRead, pinPanel, refreshPanel } = state;
 
   return (
     <div className="h-full p-3 overflow-auto flex flex-col min-h-0">
@@ -17,6 +17,7 @@ const AlertsTab: React.FC<AlertsTabProps> = ({ state }) => {
         addToBlocklist={addToBlocklist}
         addToast={addToast}
         markAlertsRead={markAlertsRead}
+        onRefresh={() => refreshPanel('threatfeed')}
         onPin={pinPanel}
       />
     </div>

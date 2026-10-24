@@ -5,6 +5,7 @@ import GlobalSearch from './components/GlobalSearch';
 import ToastManager from './components/ToastManager';
 import CriticalFlash from './components/CriticalFlash';
 import LiveStatusBar from './components/panels/LiveStatusBar';
+import { PanelPinsProvider } from './components/PanelPinsContext';
 import DashboardTab from './tabs/DashboardTab';
 import DevicesTab from './tabs/DevicesTab';
 import AlertsTab from './tabs/AlertsTab';
@@ -59,7 +60,7 @@ function App() {
 
 return (
     <RequireAuth>
-      <div className={rootClasses} style={{ background: 'var(--cyber-bg, #050d1a)' }}>
+      <div className={`app-shell ${rootClasses}`} style={{ background: 'var(--cyber-bg, #050d1a)' }}>
         <NavBar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -81,13 +82,15 @@ return (
         {/* min-h-0 is required: a flex item defaults to min-height:auto, which would stop
             main from shrinking and let tall dashboards overflow the viewport
             instead of scrolling inside their own tab. */}
-        <main className="flex-1 min-h-0 overflow-hidden dot-grid">
-          {activeTab === 'dashboard' && <DashboardTab state={state} />}
-          {activeTab === 'devices' && <DevicesTab state={state} />}
-          {activeTab === 'alerts' && <AlertsTab state={state} />}
-          {activeTab === 'scans' && <ScansTab state={state} />}
-          {activeTab === 'config' && <ConfigTab state={state} />}
-        </main>
+        <PanelPinsProvider value={state.panelPins}>
+          <main className="flex-1 min-h-0 overflow-hidden dot-grid">
+            {activeTab === 'dashboard' && <DashboardTab state={state} />}
+            {activeTab === 'devices' && <DevicesTab state={state} />}
+            {activeTab === 'alerts' && <AlertsTab state={state} />}
+            {activeTab === 'scans' && <ScansTab state={state} />}
+            {activeTab === 'config' && <ConfigTab state={state} />}
+          </main>
+        </PanelPinsProvider>
 
         {/* Global overlays */}
         <GlobalSearch
@@ -96,6 +99,13 @@ return (
           alerts={alerts}
           devices={devices}
           blocklist={blocklist}
+          onOpenTab={setActiveTab}
+          onSelectAlert={() => setActiveTab('alerts')}
+          onSelectDevice={(device) => {
+            state.focusDevice(device.ip);
+            setActiveTab('devices');
+          }}
+          onSelectBlocklist={() => setActiveTab('scans')}
         />
 
         <ToastManager toasts={toasts} removeToast={removeToast} />

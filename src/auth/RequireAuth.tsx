@@ -12,7 +12,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: '#050d1a', fontFamily: 'JetBrains Mono, monospace',
       }}>
-        <div style={{ color: '#00f5d4', fontSize: 13, letterSpacing: '0.1em' }} className="animate-pulse">
+        <div style={{ color: 'var(--accent)', fontSize: 13, letterSpacing: '0.1em' }} className="animate-pulse">
           <span style={{ marginRight: 8 }}>⬡</span>CYBERNET INITIALIZING AUTHENTICATION…
         </div>
       </div>
@@ -37,7 +37,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           style={{
             flexShrink: 0,
             background: 'rgba(255,204,0,0.08)', borderBottom: '1px solid rgba(255,204,0,0.35)',
-            padding: '7px 12px', color: '#ffcc00', fontSize: 11, letterSpacing: '0.04em',
+            padding: '7px 12px', color: 'var(--sev-med)', fontSize: 11, letterSpacing: '0.04em',
             display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
           }}
         >
@@ -49,7 +49,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
             onClick={() => setGuestMode(false)}
             style={{
               marginLeft: 'auto', background: 'rgba(255,204,0,0.15)',
-              border: '1px solid rgba(255,204,0,0.4)', color: '#ffcc00',
+              border: '1px solid rgba(255,204,0,0.4)', color: 'var(--sev-med)',
               fontSize: 11, padding: '4px 10px', borderRadius: 3, cursor: 'pointer',
               fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap',
             }}

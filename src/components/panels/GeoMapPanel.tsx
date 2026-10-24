@@ -96,7 +96,7 @@ const GeoMapPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded overflow-hidden border border-[rgba(0,245,212,0.12)]">
+      <div className="flex-1 min-h-0 rounded overflow-hidden border border-[color:var(--accent-line)]">
         {mappable.length > 0 ? (
           <MapContainer center={[20, 0]} zoom={2} style={{ height: '100%', width: '100%' }}>
             <TileLayer
@@ -149,7 +149,7 @@ const GeoMapPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) => {
       </div>
 
       {sources.length > 0 && (
-        <div className="flex items-center gap-3 font-mono text-[10px] text-gray-500 border-t border-[rgba(255,255,255,0.08)] pt-2 flex-wrap">
+        <div className="flex items-center gap-3 font-mono text-[10px] text-gray-500 border-t border-[color:var(--line-2)] pt-2 flex-wrap">
           <span>PEAK {peakSeverity ?? '—'}</span>
           {mappable.length < sources.length && <span>UNMAPPED {unlocated}</span>}
           {(['LOW', 'MED', 'HIGH', 'CRITICAL'] as ThreatLevel[]).map(severity => (

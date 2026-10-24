@@ -13,7 +13,7 @@ function coreColor(usage: number): string {
   if (usage >= 85) return '#ff2d55';
   if (usage >= 60) return '#ffcc00';
   if (usage > 0) return '#00f5d4';
-  return 'rgba(255,255,255,0.15)';
+  return 'var(--line-3)';
 }
 
 const CoreMapPanel: React.FC<CoreMapPanelProps> = ({ cpuModel, perCore, source, hostname, onPin }) => {
@@ -53,7 +53,7 @@ const CoreMapPanel: React.FC<CoreMapPanelProps> = ({ cpuModel, perCore, source, 
             ))}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 border-t border-[rgba(255,255,255,0.08)] pt-2 font-mono text-[11px]">
+          <div className="grid grid-cols-3 gap-2 border-t border-[color:var(--line-2)] pt-2 font-mono text-[11px]">
             <div>
               <div className="text-gray-500">MEAN</div>
               <div className="text-[#00f5d4] tabular-nums">{mean}%</div>

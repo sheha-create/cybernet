@@ -17,6 +17,28 @@
   --cyber-border: rgba(0, 245, 212, 0.1);
   --cyber-glow: rgba(0, 245, 212, 0.15);
 
+  /* Semantic surface/ink tokens. Dark values mirror the alpha values panels
+     already hardcoded, so dark mode is visually unchanged; light mode simply
+     remaps them. */
+  --fill-1: rgba(255, 255, 255, 0.017);      /* inset card backgrounds */
+  --line-1: rgba(255, 255, 255, 0.05);       /* hairline borders / tracks */
+  --line-2: rgba(255, 255, 255, 0.11);       /* medium borders */
+  --line-3: rgba(255, 255, 255, 0.15);       /* raised borders */
+  --ink-2: rgba(255, 255, 255, 0.6);         /* secondary text */
+  --ink-3: rgba(255, 255, 255, 0.32);        /* muted text / disabled */
+  --accent-line: rgba(0, 245, 212, 0.13);    /* faint cyan borders */
+  --accent-line-strong: rgba(0, 245, 212, 0.5);
+  --accent: #00f5d4;                          /* accent text / markers */
+  --sev-low: #00ff88;
+  --sev-med: #ffcc00;
+  --sev-high: #ff8c00;
+  --sev-critical: #ff2d55;
+  --value-ink: #e0e0e0;                        /* primary inline value text */
+  --nav-bg: linear-gradient(180deg, rgba(6, 18, 36, 0.98) 0%, rgba(8, 20, 38, 0.95) 100%);
+  --nav-shadow: 0 2px 16px rgba(0, 0, 0, 0.4), 0 0 40px rgba(0, 245, 212, 0.04);
+  --statusbar-bg: rgba(0, 0, 0, 0.25);
+  --backdrop: rgba(5, 13, 26, 0.85);
+
   /* Motion tokens. Default ease-in-out feels mechanical on live data; these
      decelerate harder so state changes read as physical rather than linear. */
   --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
@@ -323,6 +345,25 @@ body {
   --cyber-card-bg: rgba(255, 255, 255, 0.95);
   --cyber-border: rgba(0, 102, 204, 0.2);
   --cyber-glow: rgba(0, 102, 204, 0.1);
+
+  --fill-1: rgba(10, 22, 40, 0.035);
+  --line-1: rgba(10, 22, 40, 0.1);
+  --line-2: rgba(10, 22, 40, 0.2);
+  --line-3: rgba(10, 22, 40, 0.28);
+  --ink-2: rgba(10, 22, 40, 0.68);
+  --ink-3: rgba(10, 22, 40, 0.46);
+  --accent-line: rgba(0, 102, 204, 0.28);
+  --accent-line-strong: rgba(0, 102, 204, 0.45);
+  --accent: #00777c;
+  --sev-low: #0a8a4d;
+  --sev-med: #9a7500;
+  --sev-high: #b45309;
+  --sev-critical: #cf1237;
+  --value-ink: #16233b;
+  --nav-bg: linear-gradient(180deg, #fbfdff 0%, #eef4ff 100%);
+  --nav-shadow: 0 1px 3px rgba(16, 32, 56, 0.08), 0 0 24px rgba(0, 102, 204, 0.04);
+  --statusbar-bg: rgba(214, 226, 246, 0.55);
+  --backdrop: rgba(224, 232, 255, 0.88);
 }
 
 .light-mode body {
@@ -330,11 +371,92 @@ body {
   color: #0a1628;
 }
 
-.light-mode .cyber-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 102, 204, 0.2);
-  box-shadow: 0 0 20px rgba(0, 102, 204, 0.1);
+/* ============================================================
+   LIGHT MODE REFIT — utility + panel remaps
+   Applied under .app-shell so standalone dark surfaces (login,
+   error screens) keep their original palette.
+   ============================================================ */
+
+.light-mode .app-shell {
+  color: #16233b;
 }
+
+/* Neutral grays → cool navy-tinted grays */
+.light-mode .app-shell .text-gray-200 { color: rgba(16, 32, 56, 0.92); }
+.light-mode .app-shell .text-gray-300 { color: rgba(16, 32, 56, 0.78); }
+.light-mode .app-shell .text-gray-400 { color: rgba(16, 32, 56, 0.62); }
+.light-mode .app-shell .text-gray-500 { color: rgba(16, 32, 56, 0.5); }
+.light-mode .app-shell .text-gray-600 { color: rgba(16, 32, 56, 0.42); }
+.light-mode .app-shell .text-gray-700 { color: rgba(16, 32, 56, 0.35); }
+.light-mode .app-shell .placeholder-gray-600::placeholder { color: rgba(16, 32, 56, 0.4); }
+
+/* Neon title accents get print-weight equivalents for contrast on white */
+.light-mode .app-shell .text-\[\#00f5d4\] { color: #00777c; text-shadow: none; }
+.light-mode .app-shell .text-\[\#00ff88\] { color: #0a8a4d; }
+.light-mode .app-shell .text-\[\#ffcc00\] { color: #9a7500; }
+.light-mode .app-shell .text-\[\#ff2d55\] { color: #cf1237; }
+.light-mode .app-shell .text-\[\#00a8ff\] { color: #0072b5; }
+.light-mode .live-badge { color: #0a8a4d; border-color: rgba(10, 138, 77, 0.4); background: rgba(10, 138, 77, 0.07); }
+.light-mode .status-online { color: #0a8a4d; text-shadow: none; }
+.light-mode .status-warning { color: #9a7500; text-shadow: none; }
+.light-mode .status-critical { color: #cf1237; text-shadow: none; }
+
+/* Background pattern & ambient chrome */
+.light-mode .app-shell .dot-grid {
+  background-image: radial-gradient(circle, rgba(0, 102, 204, 0.14) 1px, transparent 1px);
+}
+.light-mode .app-shell .dot-grid-subtle {
+  background-image: radial-gradient(circle, rgba(0, 102, 204, 0.08) 1px, transparent 1px);
+}
+.light-mode .app-shell .panel-header {
+  border-image: linear-gradient(
+    90deg,
+    rgba(0, 102, 204, 0.55) 0%,
+    rgba(0, 102, 204, 0.14) 60%,
+    transparent 100%
+  ) 1;
+}
+.light-mode .app-shell .cyber-card {
+  background: linear-gradient(145deg, #fdfeff 0%, #f3f7ff 100%);
+  border: 1px solid rgba(0, 102, 204, 0.18);
+  box-shadow:
+    0 1px 2px rgba(16, 32, 56, 0.06),
+    0 6px 18px rgba(16, 32, 56, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.light-mode .app-shell .anomaly-active .cyber-card {
+  border-color: rgba(204, 0, 51, 0.35);
+}
+.light-mode .app-shell .cyber-card-hover:hover {
+  border-color: rgba(0, 102, 204, 0.35);
+  box-shadow:
+    0 1px 2px rgba(16, 32, 56, 0.06),
+    0 8px 22px rgba(16, 32, 56, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.light-mode ::-webkit-scrollbar-track { background: rgba(224, 232, 255, 0.7); }
+.light-mode ::-webkit-scrollbar-thumb { background: rgba(0, 102, 204, 0.35); }
+
+/* ============================================================
+   RECHARTS THEME — axes can't take CSS variables through SVG
+   attributes, so chart chrome is themed from here.
+   ============================================================ */
+
+.recharts-cartesian-axis-tick-value {
+  fill: rgba(255, 255, 255, 0.35);
+}
+
+.light-mode .app-shell .recharts-cartesian-axis-tick-value {
+  fill: rgba(10, 22, 40, 0.45);
+}
+
+/* Terminal deliberately stays dark in both themes — terminal-on-light reads
+   as low contrast, while dark consoles are the learned expectation. */
+.light-mode .app-shell .bg-black\/60 {
+  background: #0b1220;
+  color: #d7e3f7;
+}
+
 
 /* ============================================================
    NEW ANIMATIONS — matrix-rain, flicker, data-stream
@@ -452,6 +574,29 @@ body {
   font-size: 7px;
   animation: live-pulse 1.2s var(--ease-in-out-soft) infinite;
   display: inline-block;
+}
+
+/* ============================================================
+   PANEL EXPANDED — fullscreen view via DOM relocation
+   ============================================================ */
+
+.panel-expanded {
+  width: 100%;
+  height: 100%;
+  max-height: none !important;
+}
+
+/* Pinned slot highlight (wrapper rendered by tab layouts) */
+.panel-pinned > .cyber-card {
+  border-color: rgba(0, 245, 212, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.3),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(0, 245, 212, 0.12);
+}
+
+.light-mode .panel-pinned > .cyber-card {
+  border-color: rgba(0, 102, 204, 0.45);
 }
 
 /* ============================================================

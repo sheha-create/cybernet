@@ -21,7 +21,7 @@ const ConfigTab: React.FC<ConfigTabProps> = ({ state }) => {
         <section className="cyber-card p-4 space-y-3">
           <div className="font-mono text-xs uppercase tracking-widest text-[#00f5d4]">Detection Scope</div>
           <p className="font-mono text-xs text-gray-400 leading-relaxed">
-            This service records request signatures and request-rate thresholds it observes directly, plus host CPU, memory, storage, and network counters. It does not use external threat feeds, geolocation services, synthetic events, or API keys.
+            This service records request signatures and request-rate thresholds it observes directly, plus host CPU, memory, storage, and network counters. Geolocation of detected source IPs and IP-intelligence enrichment use free, key-less public endpoints (ip-api.com and the Shodan InternetDB), queried on demand. It does not use reputation feeds, synthetic events, or API keys.
           </p>
           <div className="font-mono text-[10px] text-gray-600">Set TRUST_PROXY=true only when deployed behind a trusted reverse proxy.</div>
         </section>
@@ -33,7 +33,7 @@ const ConfigTab: React.FC<ConfigTabProps> = ({ state }) => {
               <div className="font-mono text-xs text-gray-300">Dark mode</div>
               <div className="font-mono text-[10px] text-gray-600">Changes only the local dashboard theme.</div>
             </div>
-            <button onClick={() => setDarkMode(!darkMode)} aria-label="Toggle dark mode" className={`relative w-10 h-5 rounded-full transition-colors ${darkMode ? 'bg-[rgba(0,245,212,0.3)]' : 'bg-[rgba(255,255,255,0.1)]'}`}>
+            <button onClick={() => setDarkMode(!darkMode)} aria-label="Toggle dark mode" className={`relative w-10 h-5 rounded-full transition-colors ${darkMode ? 'bg-[rgba(0,245,212,0.3)]' : 'bg-[color:var(--line-2)]'}`}>
               <span className={`absolute top-0.5 w-4 h-4 rounded-full transition-transform ${darkMode ? 'translate-x-5 bg-[#00f5d4]' : 'translate-x-0.5 bg-gray-400'}`} />
             </button>
           </div>

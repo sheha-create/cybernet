@@ -36,7 +36,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, unit = '%', dange
         <span className="font-mono text-xs text-gray-600 mb-0.5">{unit}</span>
       </div>
       {typeof value === 'number' && (
-        <div className="h-1 bg-[rgba(255,255,255,0.05)] rounded overflow-hidden">
+        <div className="h-1 bg-[color:var(--line-1)] rounded overflow-hidden">
           <div
             className="h-full rounded transition-all duration-500"
             style={{

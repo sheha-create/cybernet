@@ -87,19 +87,17 @@ function Sparkline({ values, color, width = 64, height = 24 }: { values: number[
       <polyline
         points={polyline}
         fill="none"
-        stroke={color}
         strokeWidth={1.5}
         strokeLinejoin="round"
         strokeLinecap="round"
-        style={{ filter: `drop-shadow(0 0 2px ${color})` }}
+        style={{ stroke: color, filter: `drop-shadow(0 0 2px ${color})` }}
       />
       {/* Latest value dot */}
       <circle
         cx={parseFloat(last[0])}
         cy={parseFloat(last[1])}
         r={2.5}
-        fill={color}
-        style={{ filter: `drop-shadow(0 0 3px ${color})` }}
+        style={{ fill: color, filter: `drop-shadow(0 0 3px ${color})` }}
       />
     </svg>
   );
@@ -154,11 +152,11 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
     return `M ${s.x} ${s.y} A ${radius} ${radius} 0 ${large} 1 ${e.x} ${e.y}`;
   }
 
-  const healthColor = systemHealth > 80 ? '#00f5d4' : systemHealth > 55 ? '#ffcc00' : '#ff2d55';
+  const healthColor = systemHealth > 80 ? 'var(--accent)' : systemHealth > 55 ? 'var(--sev-med)' : 'var(--sev-critical)';
   const shieldActive = systemHealth > 55 && threatLevel !== 'CRITICAL';
 
   const trendIcon  = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→';
-  const trendColor = trend === 'up' ? '#00ff88' : trend === 'down' ? '#ff2d55' : '#6b7280';
+  const trendColor = trend === 'up' ? 'var(--sev-low)' : trend === 'down' ? 'var(--sev-critical)' : '#6b7280';
 
   return (
     <div className="cyber-card p-4 flex flex-col gap-3 h-full">
@@ -183,8 +181,8 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
           <svg width={size} height={size} key={animKey}>
             <defs>
               <linearGradient id="health-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%"   stopColor={healthColor} stopOpacity="0.6" />
-                <stop offset="100%" stopColor={healthColor} stopOpacity="1" />
+                <stop offset="0%"   stopOpacity="0.6" style={{ stopColor: healthColor }} />
+                <stop offset="100%" style={{ stopColor: healthColor }} />
               </linearGradient>
               <filter id="gauge-glow">
                 <feGaussianBlur stdDeviation="2" result="blur" />
@@ -201,9 +199,9 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
 
             {/* Glow layer */}
             <path d={arcPath(startAngle, healthAng, r)} fill="none"
-              stroke={healthColor} strokeWidth={strokeW + 4} strokeLinecap="round"
+              strokeWidth={strokeW + 4} strokeLinecap="round"
               opacity={0.15}
-              style={{ transition: 'all 0.8s ease-out' }}
+              style={{ stroke: healthColor, transition: 'all 0.8s ease-out' }}
             />
 
             {/* Active arc */}
@@ -214,16 +212,16 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
             />
 
             {/* Center: value + trend */}
-            <text x={cx} y={cy - 8} textAnchor="middle" fill={healthColor}
-              fontSize="22" fontFamily="JetBrains Mono, monospace" fontWeight="bold">
+            <text x={cx} y={cy - 8} textAnchor="middle" fontSize="22" fontWeight="bold"
+              style={{ fill: healthColor, fontFamily: 'JetBrains Mono, monospace' }}>
               {systemHealth}
             </text>
-            <text x={cx} y={cy + 8} textAnchor="middle" fill="rgba(255,255,255,0.3)"
-              fontSize="8" fontFamily="JetBrains Mono, monospace">
+            <text x={cx} y={cy + 8} textAnchor="middle" fontSize="8"
+              style={{ fill: 'var(--ink-3)', fontFamily: 'JetBrains Mono, monospace' }}>
               HEALTH %
             </text>
-            <text x={cx + 22} y={cy - 5} textAnchor="middle" fill={trendColor}
-              fontSize="11" fontFamily="JetBrains Mono, monospace" fontWeight="bold">
+            <text x={cx + 22} y={cy - 5} textAnchor="middle" fontSize="11" fontWeight="bold"
+              style={{ fill: trendColor, fontFamily: 'JetBrains Mono, monospace' }}>
               {trendIcon}
             </text>
           </svg>
@@ -237,7 +235,7 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
           <div
             className="mt-2 font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded text-center"
             style={{
-              color:       shieldActive ? '#00ff88' : '#ff2d55',
+              color:       shieldActive ? 'var(--sev-low)' : 'var(--sev-critical)',
               border:      `1px solid ${shieldActive ? 'rgba(0,255,136,0.3)' : 'rgba(255,45,85,0.3)'}`,
               background:  shieldActive ? 'rgba(0,255,136,0.06)' : 'rgba(255,45,85,0.06)',
               textShadow:  `0 0 6px ${shieldActive ? 'rgba(0,255,136,0.5)' : 'rgba(255,45,85,0.5)'}`,
@@ -259,7 +257,7 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
             ].map(({ label, val, raw, color }) => (
               <div key={label}
                 className="flex flex-col gap-0.5 px-2 py-1.5 rounded"
-                style={{ border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}
+                style={{ border: '1px solid var(--line-1)', background: 'var(--fill-1)' }}
               >
                 <span className="font-mono text-[10px] text-gray-500 uppercase tracking-widest">{label}</span>
                 <span
@@ -274,7 +272,7 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
           </div>
 
           <div className="flex items-center justify-between px-2 py-1 rounded"
-            style={{ border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}>
+            style={{ border: '1px solid var(--line-1)', background: 'var(--fill-1)' }}>
             <span className="font-mono text-[10px] text-gray-500 uppercase">THREAT LEVEL</span>
             <span className={`font-mono text-[10px] px-2 py-0.5 rounded border ${SEVERITY_STYLES[threatLevel]}`}>
               {threatLevel}
@@ -282,13 +280,13 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
           </div>
 
           <div className="flex items-center justify-between px-2 py-1 rounded"
-            style={{ border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}>
+            style={{ border: '1px solid var(--line-1)', background: 'var(--fill-1)' }}>
             <span className="font-mono text-[10px] text-gray-500 uppercase">YOUR IP</span>
             <span className="font-mono text-[10px] text-[#00f5d4]">{userIp || '—'}</span>
           </div>
 
           <div className="flex items-center justify-between px-2 py-1 rounded"
-            style={{ border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}>
+            style={{ border: '1px solid var(--line-1)', background: 'var(--fill-1)' }}>
             <span className="font-mono text-[10px] text-gray-500 uppercase">COLLECTOR</span>
             <span className={`font-mono text-[10px] ${backendOnline ? 'text-[#00ff88]' : 'text-[#ff2d55]'}`}
               style={{ textShadow: backendOnline ? '0 0 6px rgba(0,255,136,0.5)' : '0 0 6px rgba(255,45,85,0.5)' }}>
@@ -305,13 +303,13 @@ const OverviewPanel: React.FC<OverviewPanelProps> = ({
       </div>
 
       {/* Top sources */}
-      <div className="border-t border-[rgba(255,255,255,0.06)] pt-2">
+      <div className="border-t border-[color:var(--line-1)] pt-2">
         <div className="font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-2">Top Detected Sources</div>
         <div className="grid grid-cols-2 gap-1.5 text-[10px] text-gray-200">
           {topSources.length > 0 ? topSources.map(source => (
             <div key={source.source}
               className="flex items-center justify-between px-2 py-1 rounded"
-              style={{ border: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.018)' }}
+              style={{ border: '1px solid var(--line-1)', background: 'var(--fill-1)' }}
             >
               <span className="truncate text-gray-400">{source.source}</span>
               <span className="text-[#00f5d4] font-bold ml-2 flex-shrink-0">{source.count}</span>

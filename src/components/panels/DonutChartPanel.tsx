@@ -93,10 +93,10 @@ const DonutChartPanel: React.FC<DonutChartPanelProps> = ({ devices, donutFilter,
             onClick={() => setDonutFilter(f)}
             className={`font-mono text-[10px] px-2 py-0.5 rounded border transition-colors ${
               donutFilter === f
-                ? f === 'all' ? 'border-[rgba(0,245,212,0.5)] text-[#00f5d4] bg-[rgba(0,245,212,0.1)]'
-                  : f === 'active' ? 'border-[rgba(0,245,212,0.5)] text-[#00f5d4] bg-[rgba(0,245,212,0.1)]'
+                ? f === 'all' ? 'border-[rgba(0,245,212,0.5)] text-[#00f5d4] bg-[color:var(--accent-line)]'
+                  : f === 'active' ? 'border-[rgba(0,245,212,0.5)] text-[#00f5d4] bg-[color:var(--accent-line)]'
                   : 'border-[rgba(107,114,128,0.5)] text-gray-300 bg-[rgba(107,114,128,0.1)]'
-                : 'border-[rgba(255,255,255,0.1)] text-gray-500 hover:text-gray-300'
+                : 'border-[color:var(--line-2)] text-gray-500 hover:text-gray-300'
             }`}
           >
             {f === 'all' ? `ALL ${counts.all}` : `${f === 'active' ? 'ROUTABLE' : 'LOOPBACK'} ${counts[f]}`}

@@ -13,7 +13,7 @@ interface DeviceListPanelProps {
 
 const STATUS_STYLES: Record<DeviceStatus, string> = {
   active: 'text-[#00ff88] border-[rgba(0,255,136,0.3)] bg-[rgba(0,255,136,0.05)]',
-  loopback: 'text-gray-400 border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.04)]',
+  loopback: 'text-gray-400 border-[color:var(--line-3)] bg-[color:var(--line-1)]',
 };
 
 const DeviceListPanel: React.FC<DeviceListPanelProps> = ({
@@ -54,7 +54,7 @@ const DeviceListPanel: React.FC<DeviceListPanelProps> = ({
                 <td className="py-1.5 text-gray-200">{device.name}</td>
                 <td className="py-1.5 text-[#00f5d4] break-all">{formatIP(device.ip)}</td>
                 <td className="py-1.5">
-                  <span className="text-[10px] px-1 py-0.5 rounded border border-[rgba(255,255,255,0.12)] text-gray-400">
+                  <span className="text-[10px] px-1 py-0.5 rounded border border-[color:var(--line-2)] text-gray-400">
                     {device.family === 'IPv6' ? 'v6' : 'v4'}
                   </span>
                   {device.scope === 'link-local' && (

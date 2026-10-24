@@ -2,12 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CYBERNET // Security Platform</title>
+    <meta name="description" content="CYBERNET — live security monitoring for your service and your machine. Rate-limit, traversal and injection detection with a real-time threat map, event stream and collector-agent telemetry." />
+    <meta name="theme-color" content="#050d1a" />
+    <meta property="og:title" content="CYBERNET // Security Monitor" />
+    <meta property="og:description" content="Live security monitoring with real-time event stream, threat map and IP intelligence." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>CYBERNET // Security Monitor</title>
+    <script>
+      // Apply the persisted theme before first paint to avoid a flash of the
+      // wrong palette while React hydrates.
+      try {
+        if (localStorage.getItem('cybernet_theme') === 'light') {
+          document.documentElement.classList.add('light-mode');
+        }
+      } catch (e) { /* storage unavailable — dark default applies */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>CYBERNET is a live monitoring dashboard and requires JavaScript.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

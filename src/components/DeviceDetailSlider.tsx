@@ -7,7 +7,7 @@ interface DeviceDetailSliderProps {
 }
 
 const STATUS_COLORS = {
-  active: '#00f5d4',
+  active: 'var(--accent)',
   loopback: '#9ca3af',
 };
 
@@ -21,7 +21,7 @@ const DeviceDetailSlider: React.FC<DeviceDetailSliderProps> = ({ device, onClose
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(0,245,212,0.1)]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[color:var(--accent-line)]">
         <span className="font-mono text-xs uppercase tracking-widest text-[#00f5d4]">Interface Detail</span>
         <button onClick={onClose} className="text-gray-500 hover:text-[#ff2d55] font-mono text-sm transition-colors">✕</button>
       </div>
@@ -50,7 +50,7 @@ const DeviceDetailSlider: React.FC<DeviceDetailSliderProps> = ({ device, onClose
                 <span className="text-gray-500 shrink-0">{k}</span>
                 <span
                   className="text-right break-all"
-                  style={{ color: k === 'State' ? STATUS_COLORS[device.status] : '#e0e0e0' }}
+                  style={{ color: k === 'State' ? STATUS_COLORS[device.status] : 'var(--value-ink)' }}
                 >
                   {v}
                 </span>
@@ -58,7 +58,7 @@ const DeviceDetailSlider: React.FC<DeviceDetailSliderProps> = ({ device, onClose
             ))}
           </div>
 
-          <div className="font-mono text-[10px] text-gray-600 leading-relaxed border-t border-[rgba(255,255,255,0.08)] pt-3">
+          <div className="font-mono text-[10px] text-gray-600 leading-relaxed border-t border-[color:var(--line-2)] pt-3">
             Values reported directly by the host operating system for this machine's
             network interface. No external device discovery is performed.
           </div>

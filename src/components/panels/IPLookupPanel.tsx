@@ -42,10 +42,10 @@ interface Intel {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 60) return '#ff2d55';
-  if (score >= 30) return '#ffcc00';
-  if (score > 0) return '#00f5d4';
-  return '#00ff88';
+  if (score >= 60) return 'var(--sev-critical)';
+  if (score >= 30) return 'var(--sev-med)';
+  if (score > 0) return 'var(--accent)';
+  return 'var(--sev-low)';
 }
 
 function scoreLabel(score: number): string {
@@ -122,7 +122,7 @@ const IPLookupPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) =>
           <div className="flex items-center justify-between gap-2">
             <span className="text-gray-100 text-sm break-all">{formatIP(result.ip)}</span>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] px-1.5 py-0.5 rounded border border-[rgba(255,255,255,0.15)] text-gray-400">
+              <span className="text-[10px] px-1.5 py-0.5 rounded border border-[color:var(--line-3)] text-gray-400">
                 {result.family ?? (ipFamily(result.ip) ?? '—')}
               </span>
               <span
@@ -166,8 +166,8 @@ const IPLookupPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) =>
                           key={port}
                           className="text-[10px] px-1.5 py-0.5 rounded border"
                           style={RISKY_PORTS[port]
-                            ? { color: '#ff8c00', borderColor: 'rgba(255,140,0,0.35)', background: 'rgba(255,140,0,0.08)' }
-                            : { color: '#00f5d4', borderColor: 'rgba(0,245,212,0.25)' }}
+                            ? { color: 'var(--sev-high)', borderColor: 'rgba(255,140,0,0.35)', background: 'rgba(255,140,0,0.08)' }
+                            : { color: 'var(--accent)', borderColor: 'rgba(0,245,212,0.25)' }}
                           title={RISKY_PORTS[port] ?? 'Known open port'}
                         >
                           {port}{RISKY_PORTS[port] ? ` ${RISKY_PORTS[port]}` : ''}
@@ -199,7 +199,7 @@ const IPLookupPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) =>
               )}
 
               {result.observed && result.observed.eventCount > 0 && (
-                <div className="border-t border-[rgba(0,245,212,0.12)] pt-2 text-[10px]">
+                <div className="border-t border-[color:var(--accent-line)] pt-2 text-[10px]">
                   <span className="text-gray-500">observed against your account: </span>
                   <b className="text-[#ff2d55]">{result.observed.eventCount}</b>
                   <span className="text-gray-500"> event(s), highest </span>
@@ -209,7 +209,7 @@ const IPLookupPanel: React.FC<{ onPin?: (id: string) => void }> = ({ onPin }) =>
             </>
           )}
 
-          <div className="text-[10px] text-gray-600 border-t border-[rgba(255,255,255,0.06)] pt-2">
+          <div className="text-[10px] text-gray-600 border-t border-[color:var(--line-1)] pt-2">
             Looked up {new Date(result.generatedAt).toLocaleTimeString()}{result.cached ? ' (cached)' : ''}. Passive database lookup only.
           </div>
         </div>

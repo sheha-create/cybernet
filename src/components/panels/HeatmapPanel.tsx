@@ -14,6 +14,12 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HeatmapPanel: React.FC<HeatmapPanelProps> = ({ heatmapData, onRefresh, onPin }) => {
   const [tooltip, setTooltip] = useState<{ cell: HeatmapCell; x: number; y: number } | null>(null);
 
+  // Clamp the tooltip to the viewport so it never clips at screen edges.
+  const tooltipStyle = tooltip ? {
+    left: Math.min(tooltip.x + 12, window.innerWidth - 200),
+    top: Math.max(tooltip.y - 44, 8),
+  } : undefined;
+
   return (
     <div className="cyber-card p-4 flex flex-col gap-3 h-full relative">
       <div className="flex items-center justify-between">
@@ -79,10 +85,10 @@ const HeatmapPanel: React.FC<HeatmapPanelProps> = ({ heatmapData, onRefresh, onP
       </div>
 
       {/* Tooltip */}
-      {tooltip && (
+      {tooltip && tooltipStyle && (
         <div
           className="fixed z-50 cyber-card border border-[rgba(0,245,212,0.3)] px-2 py-1.5 font-mono text-xs pointer-events-none"
-          style={{ left: tooltip.x + 12, top: tooltip.y - 40 }}
+          style={tooltipStyle}
         >
           <div className="text-[#00f5d4]">{DAY_LABELS[tooltip.cell.day]} {String(tooltip.cell.hour).padStart(2, '0')}:00</div>
           <div className="text-gray-300">Count: {tooltip.cell.count}</div>

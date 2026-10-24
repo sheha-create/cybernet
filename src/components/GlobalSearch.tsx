@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Alert, Device, BlocklistEntry } from '../types';
 
+type TabId = 'dashboard' | 'devices' | 'alerts' | 'scans' | 'config';
+
 interface GlobalSearchProps {
   open: boolean;
   onClose: () => void;
   alerts: Alert[];
   devices: Device[];
   blocklist: BlocklistEntry[];
+  onOpenTab?: (tab: TabId) => void;
   onSelectAlert?: (alert: Alert) => void;
   onSelectDevice?: (device: Device) => void;
+  onSelectBlocklist?: (entry: BlocklistEntry) => void;
 }
 
 type ResultItem =
@@ -16,12 +20,34 @@ type ResultItem =
   | { kind: 'device'; item: Device }
   | { kind: 'blocklist'; item: BlocklistEntry };
 
+interface TabAction {
+  label: string;
+  icon: string;
+  hint: string;
+  tab: TabId;
+}
+
+const TAB_ACTIONS: TabAction[] = [
+  { label: 'Dashboard', icon: '⬛', hint: 'System overview, live telemetry', tab: 'dashboard' },
+  { label: 'Devices',   icon: '◈',   hint: 'Network interfaces observed on this host', tab: 'devices' },
+  { label: 'Alerts',    icon: '⚠',   hint: 'Threat feed and detections', tab: 'alerts' },
+  { label: 'Scans',     icon: '◎',   hint: 'Security scan findings and blocklist', tab: 'scans' },
+  { label: 'Config',    icon: '⚙',   hint: 'Collector agent and preferences', tab: 'config' },
+];
+
+const KIND_LABELS: Record<ResultItem['kind'], string> = {
+  alert: 'ALERTS',
+  device: 'DEVICES',
+  blocklist: 'BLOCKLIST',
+};
+
 const GlobalSearch: React.FC<GlobalSearchProps> = ({
-  open, onClose, alerts, devices, blocklist,
+  open, onClose, alerts, devices, blocklist, onOpenTab, onSelectAlert, onSelectDevice, onSelectBlocklist,
 }) => {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -66,102 +92,149 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
     return res.slice(0, 20);
   }, [query, alerts, devices, blocklist]);
 
+  // Keep the highlighted row visible while arrowing through the list.
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(`[data-result-index="${selected}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [selected, open]);
+
+  const select = useCallback((result: ResultItem | null) => {
+    onClose();
+    if (!result) return;
+    if (result.kind === 'alert') onSelectAlert?.(result.item);
+    if (result.kind === 'device') onSelectDevice?.(result.item);
+    if (result.kind === 'blocklist') onSelectBlocklist?.(result.item);
+  }, [onClose, onSelectAlert, onSelectDevice, onSelectBlocklist]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected(s => Math.min(s + 1, results.length - 1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected(s => Math.min(s + 1, Math.max(results.length - 1, 0))); }
     if (e.key === 'ArrowUp') { e.preventDefault(); setSelected(s => Math.max(s - 1, 0)); }
-    if (e.key === 'Enter') { onClose(); }
-  }, [results.length, onClose]);
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (results.length > 0) select(results[Math.min(selected, results.length - 1)]);
+      else onClose();
+    }
+  }, [results, selected, select, onClose]);
 
   if (!open) return null;
 
+  const navigating = results.length === 0 && query.trim();
+
   return (
     <div
-      className="fixed inset-0 z-[90] bg-[rgba(5,13,26,0.85)] flex items-start justify-center pt-24"
+      className="fixed inset-0 z-[90] flex items-start justify-center pt-24"
+      style={{ background: 'var(--backdrop, rgba(5,13,26,0.85))' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="cyber-card border border-[rgba(0,245,212,0.25)] rounded w-full max-w-xl mx-4 overflow-hidden animate-fade-in">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(0,245,212,0.1)]">
+      <div className="cyber-card border border-[color:var(--accent-line,var(--cyber-border))] rounded w-full max-w-xl mx-4 overflow-hidden animate-fade-in">
+        {/* Input row */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: 'var(--accent-line, rgba(0,245,212,0.1))' }}>
           <span className="text-[#00f5d4] text-sm">⌕</span>
           <input
             ref={inputRef}
             value={query}
             onChange={e => { setQuery(e.target.value); setSelected(0); }}
             onKeyDown={handleKeyDown}
-            placeholder="Search alerts, devices, blocklist..."
+            placeholder="Search alerts, devices, blocklist…"
             className="flex-1 bg-transparent font-mono text-sm text-gray-200 placeholder-gray-600 outline-none"
+            aria-label="Search alerts, devices, blocklist"
+            role="combobox"
+            aria-expanded={results.length > 0}
+            aria-controls="global-search-results"
           />
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 font-mono text-xs">ESC</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 font-mono text-xs" title="Close (Esc)">ESC</button>
         </div>
 
-        {results.length > 0 && (
-          <div className="max-h-80 overflow-y-auto">
-            {/* Group by kind */}
-            {(['alert', 'device', 'blocklist'] as const).map(kind => {
-              const group = results.filter(r => r.kind === kind);
-              if (group.length === 0) return null;
-              const labels: Record<string, string> = { alert: 'ALERTS', device: 'DEVICES', blocklist: 'BLOCKLIST' };
-              return (
-                <div key={kind}>
-                  <div className="px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-gray-600 bg-[rgba(0,0,0,0.2)]">
-                    {labels[kind]}
-                  </div>
-                  {group.map(r => {
-                    const globalIdx = results.indexOf(r);
-                    const isSelected = globalIdx === selected;
-                    return (
-                      <button
-                        key={r.kind === 'alert' ? r.item.id : r.kind === 'device' ? r.item.id : r.item.id}
-                        onClick={onClose}
-                        className={`w-full text-left px-4 py-2 font-mono text-xs flex items-center gap-3 transition-colors ${
-                          isSelected ? 'bg-[rgba(0,245,212,0.08)] text-[#00f5d4]' : 'text-gray-300 hover:bg-[rgba(0,245,212,0.04)]'
-                        }`}
-                      >
-                        {r.kind === 'alert' && (
-                          <>
-                            <span className={`text-[10px] px-1 rounded ${
-                              r.item.severity === 'CRITICAL' ? 'bg-[rgba(255,45,85,0.2)] text-[#ff2d55]' :
-                              r.item.severity === 'HIGH' ? 'bg-[rgba(255,100,0,0.2)] text-orange-400' :
-                              r.item.severity === 'MED' ? 'bg-[rgba(255,204,0,0.2)] text-[#ffcc00]' :
-                              'bg-[rgba(0,255,136,0.1)] text-[#00ff88]'
-                            }`}>{r.item.severity}</span>
-                            <span>{r.item.eventType}</span>
-                            <span className="text-gray-500 ml-auto">{r.item.sourceIP}</span>
-                          </>
-                        )}
-                        {r.kind === 'device' && (
-                          <>
-                            <span className="text-[#00f5d4]">⬡</span>
-                            <span>{r.item.name}</span>
-                            <span className="text-gray-500 ml-auto">{r.item.ip}</span>
-                          </>
-                        )}
-                        {r.kind === 'blocklist' && (
-                          <>
-                            <span className="text-[#ff2d55]">⊘</span>
-                            <span>{r.item.ip}</span>
-                            <span className="text-gray-500 ml-auto truncate max-w-[120px]">{r.item.reason}</span>
-                          </>
-                        )}
-                      </button>
-                    );
-                  })}
+        <div ref={listRef} id="global-search-results" role="listbox" className="max-h-80 overflow-y-auto">
+          {/* Quick tab navigation when no query is typed — the command-palette row */}
+          {!query.trim() && (
+            <div>
+              <div className="px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-gray-600 bg-black/20">
+                Jump to
+              </div>
+              {TAB_ACTIONS.map(action => (
+                <button
+                  key={action.tab}
+                  onClick={() => { onOpenTab?.(action.tab); onClose(); }}
+                  className="w-full text-left px-4 py-2 font-mono text-xs flex items-center gap-3 text-gray-300 hover:bg-black/10 transition-colors"
+                >
+                  <span className="text-[#00f5d4]">{action.icon}</span>
+                  <span>{action.label}</span>
+                  <span className="text-gray-600 ml-auto text-[10px] truncate max-w-[240px]">{action.hint}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Grouped results */}
+          {results.length > 0 && (['alert', 'device', 'blocklist'] as const).map(kind => {
+            const group = results.filter(r => r.kind === kind);
+            if (group.length === 0) return null;
+            return (
+              <div key={kind}>
+                <div className="px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-gray-600 bg-black/20">
+                  {KIND_LABELS[kind]}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                {group.map(r => {
+                  const globalIdx = results.indexOf(r);
+                  const isSelected = globalIdx === selected;
+                  return (
+                    <button
+                      key={r.kind === 'alert' ? r.item.id : r.kind === 'device' ? r.item.id : r.item.id}
+                      data-result-index={globalIdx}
+                      onClick={() => select(r)}
+                      className={`w-full text-left px-4 py-2 font-mono text-xs flex items-center gap-3 transition-colors ${
+                        isSelected ? 'bg-[rgba(0,245,212,0.08)] text-[#00f5d4]' : 'text-gray-300 hover:bg-[rgba(0,245,212,0.04)]'
+                      }`}
+                    >
+                      {r.kind === 'alert' && (
+                        <>
+                          <span className={`text-[10px] px-1 rounded ${
+                            r.item.severity === 'CRITICAL' ? 'bg-[rgba(255,45,85,0.2)] text-[#ff2d55]' :
+                            r.item.severity === 'HIGH' ? 'bg-[rgba(255,100,0,0.2)] text-orange-400' :
+                            r.item.severity === 'MED' ? 'bg-[rgba(255,204,0,0.2)] text-[#ffcc00]' :
+                            'bg-[rgba(0,255,136,0.1)] text-[#00ff88]'
+                          }`}>{r.item.severity}</span>
+                          <span>{r.item.eventType}</span>
+                          <span className="text-gray-500 ml-auto">{r.item.sourceIP}</span>
+                        </>
+                      )}
+                      {r.kind === 'device' && (
+                        <>
+                          <span className="text-[#00f5d4]">⬡</span>
+                          <span>{r.item.name}</span>
+                          <span className="text-gray-500 ml-auto">{r.item.ip}</span>
+                        </>
+                      )}
+                      {r.kind === 'blocklist' && (
+                        <>
+                          <span className="text-[#ff2d55]">⊘</span>
+                          <span>{r.item.ip}</span>
+                          <span className="text-gray-500 ml-auto truncate max-w-[120px]">{r.item.reason}</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
 
-        {query && results.length === 0 && (
-          <div className="px-4 py-6 text-center font-mono text-xs text-gray-600">
-            No results for "{query}"
-          </div>
-        )}
+          {navigating && (
+            <div className="px-4 py-6 text-center font-mono text-xs text-gray-600">
+              No results for "{query}"
+            </div>
+          )}
+        </div>
 
-        {!query && (
-          <div className="px-4 py-4 text-center font-mono text-xs text-gray-600">
-            Search alerts by IP or type · devices by hostname · blocklist by IP
-          </div>
-        )}
+        {/* Keyboard hints */}
+        <div className="flex items-center gap-3 px-4 py-2 border-t border-[color:var(--accent-line)] font-mono text-[10px] text-gray-600">
+          <span>↑↓ navigate</span>
+          <span>↵ open</span>
+          <span>esc close</span>
+        </div>
       </div>
     </div>
   );
